@@ -49,7 +49,7 @@ export function Sidebar() {
   return (
     <aside className='fixed left-0 top-0 z-30 flex h-screen w-64 flex-col border-r border-border bg-sidebar py-6'>
       {/* Logo */}
-      <Link href='/dashboard/feed' className='flex items-center gap-3 px-6 mb-8'>
+        <Link href='/feed' className='flex items-center gap-3 px-6 mb-8'>
         <div className='flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground'>
           <Briefcase className='h-5 w-5' />
         </div>
