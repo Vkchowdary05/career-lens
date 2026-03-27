@@ -53,7 +53,7 @@ export default function ExperiencesPage() {
           <h1 className='text-3xl font-bold text-foreground'>Interview Experiences</h1>
           <p className='text-muted-foreground'>Learn from real interview experiences shared by professionals</p>
         </div>
-        <Link href='/dashboard/experiences/share'>
+        <Link href='/experiences/share'>
           <Button className='gap-2'>
             <Plus className='h-4 w-4' />
             Share Experience
@@ -74,7 +74,7 @@ export default function ExperiencesPage() {
       {/* Experience Cards */}
       <div className='space-y-4'>
         {experiences.map((exp) => (
-          <Link key={exp.id} href={`/dashboard/experiences/${exp.id}`}>
+          <Link key={exp.id} href={`/experiences/${exp.id}`}>
             <Card hover>
               <CardContent className='pt-6'>
                 <div className='space-y-4'>
