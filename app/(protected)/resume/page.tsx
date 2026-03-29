@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,50 +8,241 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
-import { Upload, AlertCircle, Check, ChevronRight, Download, Copy } from 'lucide-react'
+import { Upload, AlertCircle, Check, ChevronRight, Copy, CheckCircle2, Plus, X, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { resumeApi } from '@/lib/api'
+import { useAuth } from '@/contexts/AuthContext'
 
 const ROLE_CATEGORIES = ['Engineering', 'Product', 'Design', 'Data', 'Operations']
-const COMPANIES = ['Google', 'Microsoft', 'Meta', 'Amazon', 'Apple', 'Netflix', 'Stripe']
 
-interface Step {
-  number: number
-  title: string
-  completed: boolean
+interface JdAnalysis {
+  detected_skills: string[]
+  critical_skills: string[]
+  nice_to_have_skills: string[]
+  experience_level: string
+  key_responsibilities: string[]
+}
+
+interface SkillChatMessage {
+  role: 'ai' | 'user'
+  content: string
+  skill?: string
+  isCritical?: boolean
+}
+
+interface EducationEntry {
+  institution: string; degree: string; field: string; cgpa_or_percentage: string; year_of_passing: string
+}
+interface WorkEntry {
+  company: string; role: string; duration: string; responsibilities: string
+}
+interface ProjectEntry {
+  name: string; description: string; tech_stack: string; url: string
 }
 
 export default function ResumePage() {
+  const { clUser } = useAuth()
   const [currentStep, setCurrentStep] = useState(0)
-  const [jobDetails, setJobDetails] = useState({
-    country: '',
-    city: '',
-    jobDescription: '',
-    roleCategory: '',
-    targetCompany: '',
-  })
-  const [profileTab, setProfileTab] = useState<'upload' | 'manual'>('manual')
-  const [resumeScore, setResumeScore] = useState(72)
 
-  const steps: Step[] = [
+  // Step 1: Job Details
+  const [jobDetails, setJobDetails] = useState({
+    job_description: '', role_category: '', target_country: 'India', target_city: '', target_company: '',
+  })
+  const [jdAnalysis, setJdAnalysis] = useState<JdAnalysis | null>(null)
+  const [analyzingJd, setAnalyzingJd] = useState(false)
+
+  // Step 2: Profile
+  const [profileTab, setProfileTab] = useState<'upload' | 'manual'>('manual')
+  const [cvText, setCvText] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [profile, setProfile] = useState({
+    full_name: clUser?.full_name || '',
+    email: clUser?.email || '',
+    phone: '',
+    linkedin_url: clUser?.linkedin_url || '',
+    github_url: clUser?.github_url || '',
+    portfolio_url: '',
+    skills: '' as string,
+    certifications: '' as string,
+    achievements: '' as string,
+  })
+  const [education, setEducation] = useState<EducationEntry[]>([{ institution: '', degree: '', field: '', cgpa_or_percentage: '', year_of_passing: '' }])
+  const [workExperience, setWorkExperience] = useState<WorkEntry[]>([])
+  const [projects, setProjects] = useState<ProjectEntry[]>([{ name: '', description: '', tech_stack: '', url: '' }])
+
+  // Step 3: Skill Chat
+  const [skillMessages, setSkillMessages] = useState<SkillChatMessage[]>([])
+  const [skillAnswers, setSkillAnswers] = useState<Array<{ skill: string; answer: string }>>([])
+  const [currentSkillIdx, setCurrentSkillIdx] = useState(0)
+  const [userAnswer, setUserAnswer] = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
+
+  // Step 4: Generate
+  const [latexCode, setLatexCode] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [aiError, setAiError] = useState('')
+
+  const steps = [
     { number: 1, title: 'Job Details', completed: currentStep > 0 },
     { number: 2, title: 'Your Profile', completed: currentStep > 1 },
     { number: 3, title: 'Skill Assessment', completed: currentStep > 2 },
-    { number: 4, title: 'Review Resume', completed: currentStep > 3 },
+    { number: 4, title: 'Generate Resume', completed: currentStep > 3 },
   ]
 
-  const skillMatchData = [
-    { name: 'React', match: 95, required: 100 },
-    { name: 'TypeScript', match: 85, required: 100 },
-    { name: 'Node.js', match: 78, required: 90 },
-    { name: 'System Design', match: 65, required: 95 },
-    { name: 'AWS', match: 45, required: 80 },
-  ]
+  // Step 1: Analyze JD
+  const handleAnalyzeJd = async () => {
+    if (!jobDetails.job_description.trim() || !jobDetails.role_category) return
+    setAnalyzingJd(true)
+    setAiError('')
+    try {
+      const data = await resumeApi.analyzeJd({
+        job_description: jobDetails.job_description,
+        role_category: jobDetails.role_category,
+        target_country: jobDetails.target_country,
+        target_city: jobDetails.target_city || undefined,
+        target_company: jobDetails.target_company || undefined,
+      })
+      setJdAnalysis(data)
+    } catch (e: any) {
+      const msg = e?.message || ''
+      if (msg.includes('credits') || msg.includes('permission') || msg.includes('403')) {
+        setAiError('AI service unavailable: The xAI API key has no credits. Please top up at https://console.x.ai to use this feature.')
+      } else {
+        setAiError(`Failed to analyze job description: ${msg || 'Please try again.'}`)
+      }
+    } finally {
+      setAnalyzingJd(false)
+    }
+  }
 
-  const scoreData = [
-    { name: 'Match', value: resumeScore, fill: '#3377CC' },
-    { name: 'Gap', value: 100 - resumeScore, fill: '#E5E7EB' },
-  ]
+  // Step 2: Upload CV
+  const handleCvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const data = await resumeApi.uploadCv(file)
+      setCvText(data.extracted_text || data.text || '')
+    } catch (err: any) {
+      console.error('CV upload failed', err)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  // Step 3: Start skill chat
+  const startSkillChat = () => {
+    const skills = jdAnalysis?.detected_skills || jdAnalysis?.critical_skills || []
+    if (skills.length === 0) {
+      setSkillMessages([{ role: 'ai', content: 'No specific skills detected from the JD. You can proceed to generate your resume.' }])
+      return
+    }
+    setCurrentSkillIdx(0)
+    setSkillMessages([{
+      role: 'ai',
+      content: `I detected ${skills.length} key skills from the job description. Let me assess your experience with each one.\n\nFirst up: **${skills[0]}**\n\nHow would you rate your experience with ${skills[0]}? Please describe your practical experience.`,
+      skill: skills[0],
+      isCritical: jdAnalysis?.critical_skills?.includes(skills[0]),
+    }])
+  }
+
+  const handleSkillAnswer = async () => {
+    if (!userAnswer.trim()) return
+    const skills = jdAnalysis?.detected_skills || jdAnalysis?.critical_skills || []
+    const currentSkill = skills[currentSkillIdx]
+    if (!currentSkill) return
+
+    setSkillMessages((prev) => [...prev, { role: 'user', content: userAnswer }])
+    setSkillAnswers((prev) => [...prev, { skill: currentSkill, answer: userAnswer }])
+
+    setChatLoading(true)
+    try {
+      const isCritical = jdAnalysis?.critical_skills?.includes(currentSkill) || false
+      const response = await resumeApi.skillChat(currentSkill, userAnswer, isCritical)
+      setSkillMessages((prev) => [...prev, { role: 'ai', content: response.feedback || response.message || 'Thanks for your response!' }])
+    } catch {
+      setSkillMessages((prev) => [...prev, { role: 'ai', content: 'Got it! Let\'s move on.' }])
+    } finally {
+      setChatLoading(false)
+    }
+
+    const nextIdx = currentSkillIdx + 1
+    if (nextIdx < skills.length) {
+      setCurrentSkillIdx(nextIdx)
+      setTimeout(() => {
+        setSkillMessages((prev) => [...prev, {
+          role: 'ai',
+          content: `Next skill: **${skills[nextIdx]}**\n\nDescribe your experience with ${skills[nextIdx]}.`,
+          skill: skills[nextIdx],
+          isCritical: jdAnalysis?.critical_skills?.includes(skills[nextIdx]),
+        }])
+      }, 1000)
+    } else {
+      setTimeout(() => {
+        setSkillMessages((prev) => [...prev, {
+          role: 'ai',
+          content: '✅ All skills assessed! You can now proceed to generate your tailored resume.',
+        }])
+      }, 1000)
+    }
+
+    setUserAnswer('')
+  }
+
+  // Step 4: Generate Resume
+  const handleGenerate = async () => {
+    setGenerating(true)
+    try {
+      const profilePayload = {
+        full_name: profile.full_name,
+        email: profile.email,
+        phone: profile.phone || undefined,
+        linkedin_url: profile.linkedin_url || undefined,
+        github_url: profile.github_url || undefined,
+        portfolio_url: profile.portfolio_url || undefined,
+        education: education.filter((e) => e.institution),
+        work_experience: workExperience.filter((w) => w.company),
+        projects: projects.filter((p) => p.name).map((p) => ({
+          ...p,
+          tech_stack: p.tech_stack.split(',').map((s) => s.trim()).filter(Boolean),
+        })),
+        skills: profile.skills.split(',').map((s) => s.trim()).filter(Boolean),
+        certifications: profile.certifications.split(',').map((s) => s.trim()).filter(Boolean),
+        achievements: profile.achievements.split(',').map((s) => s.trim()).filter(Boolean),
+        cv_extracted_text: cvText || undefined,
+      }
+
+      const data = await resumeApi.generate({
+        job_details: jobDetails,
+        profile: profilePayload,
+        skill_answers: skillAnswers,
+      })
+      setLatexCode(data.latex || data.latex_code || '')
+    } catch (e: any) {
+      const msg = e?.message || ''
+      if (msg.includes('credits') || msg.includes('permission') || msg.includes('403')) {
+        setAiError('AI service unavailable: The xAI API key has no credits. Please top up at https://console.x.ai.')
+      } else {
+        setAiError(`Resume generation failed: ${msg || 'Please try again.'}`)
+      }
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const copyLatex = () => {
+    navigator.clipboard.writeText(latexCode)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  React.useEffect(() => {
+    if (currentStep === 2 && skillMessages.length === 0) {
+      startSkillChat()
+    }
+  }, [currentStep])
 
   return (
     <div className='min-h-screen bg-background p-6'>
@@ -60,7 +251,7 @@ export default function ResumePage() {
         <div className='mb-8'>
           <h1 className='text-3xl font-bold mb-2'>Resume Optimizer</h1>
           <p className='text-muted-foreground'>
-            Optimize your resume to match job requirements and increase match score
+            AI-powered resume tailoring to match any job description
           </p>
         </div>
 
@@ -83,12 +274,7 @@ export default function ResumePage() {
                   {currentStep > idx ? <Check className='h-5 w-5' /> : step.number}
                 </button>
                 {idx < steps.length - 1 && (
-                  <div
-                    className={cn(
-                      'flex-1 h-1 mx-2 transition-colors',
-                      currentStep > idx ? 'bg-accent' : 'bg-muted'
-                    )}
-                  />
+                  <div className={cn('flex-1 h-1 mx-2 transition-colors', currentStep > idx ? 'bg-accent' : 'bg-muted')} />
                 )}
               </React.Fragment>
             ))}
@@ -102,117 +288,130 @@ export default function ResumePage() {
 
         <div className='grid grid-cols-1 lg:grid-cols-4 gap-6'>
           {/* Left: Detected Requirements */}
-          {currentStep > 0 && (
+          {jdAnalysis && currentStep > 0 && (
             <div className='lg:col-span-1'>
               <Card className='sticky top-6'>
                 <CardHeader className='pb-4'>
                   <CardTitle className='text-sm'>Detected Requirements</CardTitle>
                 </CardHeader>
-                <CardContent className='space-y-2'>
-                  <div className='space-y-2'>
-                    <p className='text-xs font-medium text-muted-foreground'>Skills</p>
+                <CardContent className='space-y-3'>
+                  <div>
+                    <p className='text-xs font-medium text-muted-foreground mb-1'>Critical Skills</p>
                     <div className='flex flex-wrap gap-1'>
-                      {['React', 'TypeScript', 'Node.js', 'AWS', 'MongoDB'].map((skill) => (
-                        <Badge key={skill} variant='secondary' className='text-xs'>
-                          {skill}
-                        </Badge>
+                      {(jdAnalysis.critical_skills || []).map((skill) => (
+                        <Badge key={skill} variant='destructive' className='text-xs'>{skill}</Badge>
                       ))}
                     </div>
                   </div>
-                  <div className='pt-4 space-y-2 border-t border-border'>
-                    <p className='text-xs font-medium text-muted-foreground'>Experience</p>
-                    <p className='text-xs'>3-5 years of experience required</p>
+                  <div>
+                    <p className='text-xs font-medium text-muted-foreground mb-1'>Nice to Have</p>
+                    <div className='flex flex-wrap gap-1'>
+                      {(jdAnalysis.nice_to_have_skills || []).map((skill) => (
+                        <Badge key={skill} variant='secondary' className='text-xs'>{skill}</Badge>
+                      ))}
+                    </div>
                   </div>
+                  {jdAnalysis.experience_level && (
+                    <div className='pt-2 border-t border-border'>
+                      <p className='text-xs font-medium text-muted-foreground'>Experience Level</p>
+                      <p className='text-xs'>{jdAnalysis.experience_level}</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
           )}
 
           {/* Right: Form Content */}
-          <div className={cn(currentStep > 0 ? 'lg:col-span-3' : 'lg:col-span-4')}>
+          <div className={cn(jdAnalysis && currentStep > 0 ? 'lg:col-span-3' : 'lg:col-span-4')}>
+            {/* Step 1: Job Details */}
             {currentStep === 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle>Job Details</CardTitle>
-                  <CardDescription>
-                    Provide the job description you&apos;re applying for
-                  </CardDescription>
+                  <CardDescription>Provide the job description you&apos;re applying for</CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-4'>
                   <div className='grid grid-cols-2 gap-4'>
                     <div>
                       <label className='text-sm font-medium mb-1 block'>Country</label>
-                      <Select value={jobDetails.country} onValueChange={(v) => setJobDetails({ ...jobDetails, country: v })}>
-                        <SelectTrigger>
-                          <SelectValue placeholder='Select country' />
-                        </SelectTrigger>
+                      <Select value={jobDetails.target_country} onValueChange={(v) => setJobDetails({ ...jobDetails, target_country: v })}>
+                        <SelectTrigger><SelectValue placeholder='Select country' /></SelectTrigger>
                         <SelectContent>
+                          <SelectItem value='India'>India</SelectItem>
                           <SelectItem value='US'>United States</SelectItem>
-                          <SelectItem value='CA'>Canada</SelectItem>
                           <SelectItem value='UK'>United Kingdom</SelectItem>
-                          <SelectItem value='IN'>India</SelectItem>
+                          <SelectItem value='Canada'>Canada</SelectItem>
+                          <SelectItem value='Germany'>Germany</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <label className='text-sm font-medium mb-1 block'>City</label>
-                      <Input
-                        placeholder='e.g., San Francisco'
-                        value={jobDetails.city}
-                        onChange={(e) => setJobDetails({ ...jobDetails, city: e.target.value })}
-                      />
+                      <label className='text-sm font-medium mb-1 block'>City (optional)</label>
+                      <Input placeholder='e.g., Bangalore' value={jobDetails.target_city} onChange={(e) => setJobDetails({ ...jobDetails, target_city: e.target.value })} />
                     </div>
                   </div>
 
                   <div>
-                    <label className='text-sm font-medium mb-1 block'>Job Description</label>
+                    <label className='text-sm font-medium mb-1 block'>Job Description *</label>
                     <Textarea
-                      placeholder='Paste the job description here...'
-                      value={jobDetails.jobDescription}
-                      onChange={(e) => setJobDetails({ ...jobDetails, jobDescription: e.target.value })}
+                      placeholder='Paste the full job description here...'
+                      value={jobDetails.job_description}
+                      onChange={(e) => setJobDetails({ ...jobDetails, job_description: e.target.value })}
                       className='min-h-32'
                     />
                   </div>
 
                   <div className='grid grid-cols-2 gap-4'>
                     <div>
-                      <label className='text-sm font-medium mb-1 block'>Role Category</label>
-                      <Select value={jobDetails.roleCategory} onValueChange={(v) => setJobDetails({ ...jobDetails, roleCategory: v })}>
-                        <SelectTrigger>
-                          <SelectValue placeholder='Select category' />
-                        </SelectTrigger>
+                      <label className='text-sm font-medium mb-1 block'>Role Category *</label>
+                      <Select value={jobDetails.role_category} onValueChange={(v) => setJobDetails({ ...jobDetails, role_category: v })}>
+                        <SelectTrigger><SelectValue placeholder='Select category' /></SelectTrigger>
                         <SelectContent>
                           {ROLE_CATEGORIES.map((cat) => (
-                            <SelectItem key={cat} value={cat}>
-                              {cat}
-                            </SelectItem>
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <label className='text-sm font-medium mb-1 block'>Target Company</label>
-                      <Select value={jobDetails.targetCompany} onValueChange={(v) => setJobDetails({ ...jobDetails, targetCompany: v })}>
-                        <SelectTrigger>
-                          <SelectValue placeholder='Select company' />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {COMPANIES.map((company) => (
-                            <SelectItem key={company} value={company}>
-                              {company}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <label className='text-sm font-medium mb-1 block'>Target Company (optional)</label>
+                      <Input placeholder='e.g., Google' value={jobDetails.target_company} onChange={(e) => setJobDetails({ ...jobDetails, target_company: e.target.value })} />
                     </div>
                   </div>
 
-                  <Button className='w-full'>
-                    Analyze Job Description
+                  <Button
+                    className='w-full'
+                    onClick={handleAnalyzeJd}
+                    disabled={analyzingJd || !jobDetails.job_description.trim() || !jobDetails.role_category}
+                  >
+                    {analyzingJd ? 'Analyzing JD with AI...' : 'Analyze Job Description'}
                   </Button>
 
+                  {aiError && (
+                    <div className='p-4 rounded-lg bg-destructive/10 border border-destructive/20'>
+                      <p className='text-sm font-medium text-destructive flex items-start gap-2'>
+                        <AlertCircle className='h-4 w-4 mt-0.5 flex-shrink-0' />
+                        <span>{aiError}</span>
+                      </p>
+                    </div>
+                  )}
+
+                  {jdAnalysis && (
+                    <div className='p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'>
+                      <p className='text-sm font-medium text-green-700 dark:text-green-400 flex items-center gap-2'>
+                        <CheckCircle2 className='h-4 w-4' />
+                        JD analyzed! {(jdAnalysis.detected_skills || []).length} skills detected.
+                      </p>
+                    </div>
+                  )}
+
                   <div className='flex gap-4 pt-4'>
-                    <Button onClick={() => setCurrentStep(1)} className='ml-auto'>
+                    <Button
+                      onClick={() => setCurrentStep(1)}
+                      className='ml-auto'
+                      disabled={!jdAnalysis && !jobDetails.job_description.trim()}
+                    >
                       Next <ChevronRight className='h-4 w-4 ml-2' />
                     </Button>
                   </div>
@@ -220,65 +419,109 @@ export default function ResumePage() {
               </Card>
             )}
 
+            {/* Step 2: Profile */}
             {currentStep === 1 && (
               <Card>
                 <CardHeader>
                   <CardTitle>Your Profile</CardTitle>
                   <CardDescription>
-                    {profileTab === 'upload' ? 'Upload your CV' : 'Fill in your information manually'}
+                    {profileTab === 'upload' ? 'Upload your CV to auto-fill' : 'Fill in your information manually'}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-4'>
                   <div className='flex gap-2 border-b border-border pb-4'>
-                    <Button
-                      variant={profileTab === 'upload' ? 'default' : 'ghost'}
-                      onClick={() => setProfileTab('upload')}
-                      size='sm'
-                    >
-                      Upload CV
-                    </Button>
-                    <Button
-                      variant={profileTab === 'manual' ? 'default' : 'ghost'}
-                      onClick={() => setProfileTab('manual')}
-                      size='sm'
-                    >
-                      Fill Manually
-                    </Button>
+                    <Button variant={profileTab === 'upload' ? 'default' : 'ghost'} onClick={() => setProfileTab('upload')} size='sm'>Upload CV</Button>
+                    <Button variant={profileTab === 'manual' ? 'default' : 'ghost'} onClick={() => setProfileTab('manual')} size='sm'>Fill Manually</Button>
                   </div>
 
                   {profileTab === 'upload' ? (
-                    <div className='border-2 border-dashed border-border rounded-lg p-8 text-center'>
-                      <Upload className='h-8 w-8 text-muted-foreground mx-auto mb-2' />
-                      <p className='text-sm font-medium mb-1'>Drag and drop your CV</p>
-                      <p className='text-xs text-muted-foreground'>or click to browse</p>
+                    <div>
+                      <input ref={fileInputRef} type='file' accept='.pdf,.doc,.docx,.txt' className='hidden' onChange={handleCvUpload} />
+                      <div
+                        className='border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors'
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload className='h-8 w-8 text-muted-foreground mx-auto mb-2' />
+                        <p className='text-sm font-medium mb-1'>
+                          {uploading ? 'Uploading & extracting...' : 'Click to upload your CV'}
+                        </p>
+                        <p className='text-xs text-muted-foreground'>PDF, DOC, DOCX, or TXT</p>
+                      </div>
+                      {cvText && (
+                        <div className='mt-4 p-3 rounded-lg bg-green-50 dark:bg-green-900/20'>
+                          <p className='text-sm text-green-700 dark:text-green-400 flex items-center gap-2'>
+                            <CheckCircle2 className='h-4 w-4' />
+                            CV text extracted ({cvText.length} characters). You can now proceed!
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className='space-y-4'>
                       <div className='grid grid-cols-2 gap-4'>
                         <div>
-                          <label className='text-sm font-medium mb-1 block'>First Name</label>
-                          <Input placeholder='John' />
+                          <label className='text-sm font-medium mb-1 block'>Full Name</label>
+                          <Input value={profile.full_name} onChange={(e) => setProfile({ ...profile, full_name: e.target.value })} />
                         </div>
                         <div>
-                          <label className='text-sm font-medium mb-1 block'>Last Name</label>
-                          <Input placeholder='Doe' />
+                          <label className='text-sm font-medium mb-1 block'>Email</label>
+                          <Input value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} />
                         </div>
                       </div>
-                      <div>
-                        <label className='text-sm font-medium mb-1 block'>Email</label>
-                        <Input placeholder='john@example.com' />
+                      <div className='grid grid-cols-2 gap-4'>
+                        <div>
+                          <label className='text-sm font-medium mb-1 block'>Phone</label>
+                          <Input value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} placeholder='+91...' />
+                        </div>
+                        <div>
+                          <label className='text-sm font-medium mb-1 block'>LinkedIn URL</label>
+                          <Input value={profile.linkedin_url} onChange={(e) => setProfile({ ...profile, linkedin_url: e.target.value })} />
+                        </div>
                       </div>
+
+                      {/* Education */}
                       <div>
-                        <label className='text-sm font-medium mb-1 block'>Experience Summary</label>
-                        <Textarea placeholder='Describe your work experience...' className='min-h-24' />
+                        <div className='flex items-center justify-between mb-2'>
+                          <label className='text-sm font-medium'>Education</label>
+                          <button onClick={() => setEducation([...education, { institution: '', degree: '', field: '', cgpa_or_percentage: '', year_of_passing: '' }])} className='text-xs text-primary hover:underline flex items-center gap-1'>
+                            <Plus className='h-3 w-3' /> Add
+                          </button>
+                        </div>
+                        {education.map((edu, i) => (
+                          <div key={i} className='grid grid-cols-3 gap-2 mb-2'>
+                            <Input placeholder='Institution' value={edu.institution} onChange={(e) => { const a = [...education]; a[i].institution = e.target.value; setEducation(a) }} />
+                            <Input placeholder='Degree' value={edu.degree} onChange={(e) => { const a = [...education]; a[i].degree = e.target.value; setEducation(a) }} />
+                            <Input placeholder='Field' value={edu.field} onChange={(e) => { const a = [...education]; a[i].field = e.target.value; setEducation(a) }} />
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Projects */}
+                      <div>
+                        <div className='flex items-center justify-between mb-2'>
+                          <label className='text-sm font-medium'>Projects</label>
+                          <button onClick={() => setProjects([...projects, { name: '', description: '', tech_stack: '', url: '' }])} className='text-xs text-primary hover:underline flex items-center gap-1'>
+                            <Plus className='h-3 w-3' /> Add
+                          </button>
+                        </div>
+                        {projects.map((proj, i) => (
+                          <div key={i} className='grid grid-cols-2 gap-2 mb-2'>
+                            <Input placeholder='Project name' value={proj.name} onChange={(e) => { const a = [...projects]; a[i].name = e.target.value; setProjects(a) }} />
+                            <Input placeholder='Tech stack (comma-separated)' value={proj.tech_stack} onChange={(e) => { const a = [...projects]; a[i].tech_stack = e.target.value; setProjects(a) }} />
+                            <Textarea placeholder='Description' value={proj.description} onChange={(e) => { const a = [...projects]; a[i].description = e.target.value; setProjects(a) }} className='col-span-2 min-h-16' />
+                          </div>
+                        ))}
+                      </div>
+
+                      <div>
+                        <label className='text-sm font-medium mb-1 block'>Skills (comma-separated)</label>
+                        <Input placeholder='React, TypeScript, Python...' value={profile.skills} onChange={(e) => setProfile({ ...profile, skills: e.target.value })} />
                       </div>
                     </div>
                   )}
 
                   <div className='flex gap-4 pt-4'>
-                    <Button variant='outline' onClick={() => setCurrentStep(0)}>
-                      Back
-                    </Button>
+                    <Button variant='outline' onClick={() => setCurrentStep(0)}>Back</Button>
                     <Button onClick={() => setCurrentStep(2)} className='ml-auto'>
                       Next <ChevronRight className='h-4 w-4 ml-2' />
                     </Button>
@@ -287,57 +530,55 @@ export default function ResumePage() {
               </Card>
             )}
 
+            {/* Step 3: Skill Chat */}
             {currentStep === 2 && (
               <Card>
                 <CardHeader>
                   <CardTitle>Skill Assessment</CardTitle>
-                  <CardDescription>
-                    Let&apos;s assess your skills against job requirements
-                  </CardDescription>
+                  <CardDescription>AI-powered skill gap analysis based on the JD</CardDescription>
                 </CardHeader>
-                <CardContent className='space-y-6'>
-                  {/* Chat-like assessment */}
-                  <div className='space-y-4 max-h-96 overflow-y-auto'>
-                    <div className='flex gap-3'>
-                      <div className='h-8 w-8 rounded-full bg-secondary/20 flex-shrink-0' />
-                      <div className='bg-muted rounded-lg p-3 flex-1'>
-                        <p className='text-sm'>
-                          Based on the job description, I see you need React, TypeScript, and System Design skills. How comfortable are you with these areas?
-                        </p>
+                <CardContent className='space-y-4'>
+                  <div className='space-y-4 max-h-96 overflow-y-auto pr-2'>
+                    {skillMessages.map((msg, i) => (
+                      <div key={i} className={cn('flex gap-3', msg.role === 'user' && 'justify-end')}>
+                        {msg.role === 'ai' && (
+                          <div className='h-8 w-8 rounded-full bg-primary/20 flex-shrink-0 flex items-center justify-center text-xs font-bold text-primary'>AI</div>
+                        )}
+                        <div className={cn(
+                          'rounded-lg p-3 max-w-[80%] text-sm',
+                          msg.role === 'ai' ? 'bg-muted' : 'bg-primary text-primary-foreground',
+                          msg.isCritical && msg.role === 'ai' && 'border-l-4 border-destructive'
+                        )}>
+                          <p className='whitespace-pre-wrap'>{msg.content}</p>
+                          {msg.isCritical && msg.role === 'ai' && (
+                            <Badge variant='destructive' size='sm' className='mt-2'>Critical Skill</Badge>
+                          )}
+                        </div>
                       </div>
-                    </div>
-
-                    {/* Assessment options */}
-                    <div className='flex flex-col gap-2 ml-11'>
-                      {['Very Comfortable', 'Somewhat Comfortable', 'Need to Improve'].map((option) => (
-                        <button
-                          key={option}
-                          className='text-left px-3 py-2 rounded-lg border border-border hover:bg-muted transition-colors'
-                        >
-                          {option}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* System message */}
-                    <div className='flex gap-3 mt-4'>
-                      <div className='h-8 w-8 rounded-full bg-primary/20 flex-shrink-0' />
-                      <div className='bg-destructive/10 border border-destructive/20 rounded-lg p-3 flex-1'>
-                        <p className='text-sm text-destructive font-medium flex items-center gap-2'>
-                          <AlertCircle className='h-4 w-4' />
-                          Critical Gap: System Design skills
-                        </p>
-                        <p className='text-xs text-destructive/80 mt-1'>
-                          This is a high priority skill for this role
-                        </p>
+                    ))}
+                    {chatLoading && (
+                      <div className='flex gap-3'>
+                        <div className='h-8 w-8 rounded-full bg-primary/20 flex-shrink-0' />
+                        <div className='bg-muted rounded-lg p-3'><div className='animate-pulse flex gap-1'><div className='h-2 w-2 rounded-full bg-muted-foreground' /><div className='h-2 w-2 rounded-full bg-muted-foreground' /><div className='h-2 w-2 rounded-full bg-muted-foreground' /></div></div>
                       </div>
-                    </div>
+                    )}
+                  </div>
+
+                  <div className='flex gap-2 pt-2 border-t border-border'>
+                    <Input
+                      placeholder='Describe your experience with this skill...'
+                      value={userAnswer}
+                      onChange={(e) => setUserAnswer(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSkillAnswer()}
+                      className='flex-1'
+                    />
+                    <Button onClick={handleSkillAnswer} disabled={chatLoading || !userAnswer.trim()} size='icon'>
+                      <Send className='h-4 w-4' />
+                    </Button>
                   </div>
 
                   <div className='flex gap-4 pt-4'>
-                    <Button variant='outline' onClick={() => setCurrentStep(1)}>
-                      Back
-                    </Button>
+                    <Button variant='outline' onClick={() => setCurrentStep(1)}>Back</Button>
                     <Button onClick={() => setCurrentStep(3)} className='ml-auto'>
                       Next <ChevronRight className='h-4 w-4 ml-2' />
                     </Button>
@@ -346,77 +587,49 @@ export default function ResumePage() {
               </Card>
             )}
 
+            {/* Step 4: Generate */}
             {currentStep === 3 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Your Resume Score</CardTitle>
+                  <CardTitle>Generate Your Resume</CardTitle>
                   <CardDescription>
-                    Your resume is ready for review
+                    AI will create an ATS-optimized LaTeX resume tailored to the job description
                   </CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-6'>
-                  <div className='grid grid-cols-2 gap-6'>
-                    {/* Score Chart */}
-                    <div>
-                      <ResponsiveContainer width='100%' height={200}>
-                        <PieChart>
-                          <Pie
-                            data={scoreData}
-                            cx='50%'
-                            cy='50%'
-                            innerRadius={60}
-                            outerRadius={90}
-                            paddingAngle={2}
-                            dataKey='value'
-                          >
-                            {scoreData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.fill} />
-                            ))}
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className='text-center mt-2'>
-                        <p className='text-3xl font-bold'>{resumeScore}</p>
-                        <p className='text-xs text-muted-foreground'>Match Score</p>
+                  {!latexCode ? (
+                    <div className='text-center py-8'>
+                      <p className='text-muted-foreground mb-4'>
+                        Ready to generate your tailored resume with {skillAnswers.length} skill assessments applied.
+                      </p>
+                      <Button onClick={handleGenerate} disabled={generating} size='lg'>
+                        {generating ? 'Generating with AI...' : '✨ Generate Resume'}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className='space-y-4'>
+                      <div className='flex items-center justify-between'>
+                        <h3 className='font-medium'>Generated LaTeX Code</h3>
+                        <Button variant='outline' size='sm' onClick={copyLatex} className='gap-2'>
+                          {copied ? <CheckCircle2 className='h-4 w-4 text-green-500' /> : <Copy className='h-4 w-4' />}
+                          {copied ? 'Copied!' : 'Copy LaTeX'}
+                        </Button>
+                      </div>
+                      <div className='relative'>
+                        <pre className='p-4 rounded-lg bg-muted text-xs font-mono overflow-auto max-h-96 whitespace-pre-wrap'>
+                          {latexCode}
+                        </pre>
+                      </div>
+                      <div className='p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'>
+                        <p className='text-sm text-blue-700 dark:text-blue-400'>
+                          💡 Copy the LaTeX code above and paste it into <a href='https://www.overleaf.com' target='_blank' rel='noopener noreferrer' className='underline font-medium'>Overleaf</a> to compile it into a PDF.
+                        </p>
                       </div>
                     </div>
-
-                    {/* Skill Match Breakdown */}
-                    <div className='space-y-3'>
-                      <p className='text-sm font-medium'>Skill Match Breakdown</p>
-                      {skillMatchData.map((skill) => (
-                        <div key={skill.name} className='space-y-1'>
-                          <div className='flex justify-between text-xs'>
-                            <span>{skill.name}</span>
-                            <span className='text-muted-foreground'>{skill.match}%</span>
-                          </div>
-                          <Progress value={skill.match} className='h-1' />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className='border-t border-border pt-6'>
-                    <p className='text-sm font-medium mb-3'>Actions</p>
-                    <div className='flex flex-col gap-2'>
-                      <Button variant='outline' className='justify-start'>
-                        <Copy className='h-4 w-4 mr-2' />
-                        Copy LaTeX
-                      </Button>
-                      <Button variant='outline' className='justify-start'>
-                        <Download className='h-4 w-4 mr-2' />
-                        Download PDF
-                      </Button>
-                      <Button className='justify-start'>
-                        Start Tracking Applications
-                      </Button>
-                    </div>
-                  </div>
+                  )}
 
                   <div className='flex gap-4 pt-4'>
-                    <Button variant='outline' onClick={() => setCurrentStep(2)}>
-                      Back
-                    </Button>
+                    <Button variant='outline' onClick={() => setCurrentStep(2)}>Back</Button>
                   </div>
                 </CardContent>
               </Card>

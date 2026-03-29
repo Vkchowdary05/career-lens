@@ -251,12 +251,40 @@ function CreatePostCard({ onPost }: { onPost: (post: Post) => void }) {
 export default function FeedPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
-  const [feedType, setFeedType] = useState<'latest' | 'following'>('latest')
+  const [feedType, setFeedType] = useState<'latest' | 'following' | 'for_you'>('for_you')
   const [searchQuery, setSearchQuery] = useState('')
   const [trendingCompanies, setTrendingCompanies] = useState<any[]>([])
   const [topContributors, setTopContributors] = useState<any[]>([])
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
+  const [selectedInterests, setSelectedInterests] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('cl_interests')
+      return saved ? JSON.parse(saved) : ['Engineering']
+    }
+    return ['Engineering']
+  })
+
+  const INTERESTS = [
+    { label: '💻 SWE', value: 'Engineering' },
+    { label: '📊 Data', value: 'Data' },
+    { label: '📦 Product', value: 'Product' },
+    { label: '🎨 Design', value: 'Design' },
+    { label: '⚙️ DevOps', value: 'DevOps' },
+    { label: '🔒 Security', value: 'Security' },
+    { label: '📱 Mobile', value: 'Mobile' },
+    { label: '☁️ Cloud', value: 'Cloud' },
+  ]
+
+  const toggleInterest = (value: string) => {
+    const next = selectedInterests.includes(value)
+      ? selectedInterests.filter((i) => i !== value)
+      : [...selectedInterests, value]
+    setSelectedInterests(next)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cl_interests', JSON.stringify(next))
+    }
+  }
 
   useEffect(() => {
     loadPosts()
@@ -266,7 +294,9 @@ export default function FeedPage() {
   const loadPosts = async (pageNum = 1) => {
     setLoading(true)
     try {
-      const data = await feedApi.getPosts(pageNum, feedType)
+      // "for_you" is client-side filtering — fetch as "latest" from API
+      const apiFeedType = feedType === 'for_you' ? 'latest' : feedType
+      const data = await feedApi.getPosts(pageNum, apiFeedType)
       if (pageNum === 1) {
         setPosts(data.posts || [])
       } else {
@@ -298,13 +328,35 @@ export default function FeedPage() {
     setPosts((prev) => [post, ...prev])
   }
 
-  const filteredPosts = posts.filter(
-    (p) =>
+  const filteredPosts = posts.filter((p) => {
+    // Text search filter
+    const matchesSearch =
       !searchQuery ||
       p.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.author?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (p.company_name || '').toLowerCase().includes(searchQuery.toLowerCase())
-  )
+
+    // Personalization filter for "For You" tab
+    if (feedType === 'for_you' && selectedInterests.length > 0) {
+      const postText = `${p.content} ${p.tags?.join(' ')} ${p.role_title || ''} ${p.company_name || ''}`.toLowerCase()
+      const interestKeywords: Record<string, string[]> = {
+        Engineering: ['engineer', 'software', 'developer', 'sde', 'backend', 'frontend', 'fullstack', 'java', 'python', 'react', 'node', 'code', 'algo'],
+        Data: ['data', 'ml', 'ai', 'machine learning', 'analytics', 'sql', 'spark', 'etl', 'scientist', 'analyst'],
+        Product: ['product', 'pm', 'roadmap', 'strategy', 'stakeholder', 'ux', 'user research'],
+        Design: ['design', 'ui', 'ux', 'figma', 'visual', 'creative', 'brand', 'sketch'],
+        DevOps: ['devops', 'docker', 'kubernetes', 'k8s', 'ci/cd', 'aws', 'gcp', 'azure', 'terraform', 'infrastructure'],
+        Security: ['security', 'cyber', 'pentest', 'soc', 'devsecops', 'vulnerability', 'siem'],
+        Mobile: ['mobile', 'android', 'ios', 'flutter', 'react native', 'swift', 'kotlin'],
+        Cloud: ['cloud', 'aws', 'azure', 'gcp', 'serverless', 'microservices', 'sre'],
+      }
+      const matchesInterest = selectedInterests.some((interest) =>
+        (interestKeywords[interest] || []).some((kw) => postText.includes(kw))
+      )
+      return matchesSearch && (matchesInterest || p.tags?.some((t) => selectedInterests.includes(t)))
+    }
+
+    return matchesSearch
+  })
 
   return (
     <div className='min-h-screen bg-background p-6'>
@@ -331,8 +383,8 @@ export default function FeedPage() {
             <CreatePostCard onPost={handleNewPost} />
 
             {/* Feed Tabs */}
-            <div className='flex gap-2'>
-              {(['latest', 'following'] as const).map((type) => (
+            <div className='flex gap-2 flex-wrap'>
+              {(['for_you', 'latest', 'following'] as const).map((type) => (
                 <button
                   key={type}
                   onClick={() => setFeedType(type)}
@@ -343,10 +395,31 @@ export default function FeedPage() {
                       : 'bg-muted text-muted-foreground hover:bg-muted/80'
                   )}
                 >
-                  {type === 'latest' ? '🕐 Latest' : '👥 Following'}
+                  {type === 'for_you' ? '✨ For You' : type === 'latest' ? '🕐 Latest' : '👥 Following'}
                 </button>
               ))}
             </div>
+
+            {/* Interest Filters (only for For You tab) */}
+            {feedType === 'for_you' && (
+              <div className='flex flex-wrap gap-2'>
+                <span className='text-xs text-muted-foreground self-center'>Interests:</span>
+                {INTERESTS.map((interest) => (
+                  <button
+                    key={interest.value}
+                    onClick={() => toggleInterest(interest.value)}
+                    className={cn(
+                      'text-xs px-3 py-1 rounded-full border transition-all',
+                      selectedInterests.includes(interest.value)
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'border-border text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    {interest.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Search */}
             <div className='relative'>

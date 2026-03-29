@@ -8,9 +8,9 @@ class Settings(BaseSettings):
     CLOUDINARY_CLOUD_NAME: str
     CLOUDINARY_API_KEY: str
     CLOUDINARY_API_SECRET: str
-    GROK_API_KEY: str
-    GROK_BASE_URL: str = "https://api.x.ai/v1"
-    GROK_MODEL: str = "grok-3-mini"
+    GEMINI_API_KEY: str
+    GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
     ALLOWED_ORIGINS: str = "http://localhost:3000"
 
     class Config:

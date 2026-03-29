@@ -16,6 +16,10 @@ interface CareerLensUser {
   college?: string;
   current_company?: string;
   current_role?: string;
+  location?: string;
+  linkedin_url?: string;
+  github_url?: string;
+  portfolio_url?: string;
   points: number;
   followers_count: number;
   following_count: number;

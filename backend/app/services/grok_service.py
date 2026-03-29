@@ -1,51 +1,65 @@
 import json
+import re
 from openai import AsyncOpenAI
 from app.config import settings
 
+# Gemini 2.5 Flash via OpenAI-compatible endpoint
 _client = AsyncOpenAI(
-    api_key=settings.GROK_API_KEY,
-    base_url=settings.GROK_BASE_URL
+    api_key=settings.GEMINI_API_KEY,
+    base_url=settings.GEMINI_BASE_URL,
 )
 
+
+def _parse_json(raw: str) -> dict:
+    """Strip markdown fences that Gemini sometimes adds, then parse JSON."""
+    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip(), flags=re.MULTILINE).strip()
+    return json.loads(cleaned)
+
+
 async def analyze_jd_and_cv(job_description: str, cv_text: str, role_category: str, country: str) -> dict:
-    prompt = f"""You are a professional resume expert and career coach.
+    prompt = f"""You are an expert ATS systems engineer and technical recruiter with 15 years of experience.
+
+Your job: Extract EVERY skill, technology, tool, methodology, and keyword from this job description.
+Be exhaustive. Don't miss anything. Include both explicit and implicit requirements.
 
 Job Description:
 {job_description}
 
-Candidate CV/Profile Summary:
-{cv_text if cv_text else "Not provided — analyze JD only."}
+Candidate CV (if provided):
+{cv_text if cv_text else "Not provided."}
 
 Role Category: {role_category}
 Target Country: {country}
 
-Analyze the above and return a JSON object with EXACTLY this structure:
+Extract and classify ALL skills/keywords. Return this EXACT JSON structure:
 {{
-  "must_have_skills": ["skill1", "skill2"],
-  "good_to_have_skills": ["skill3", "skill4"],
-  "hidden_critical_skills": [
-    {{"skill": "Linux", "reason": "Essential for DevOps even if not explicitly mentioned", "urgency": "high"}}
-  ],
-  "skill_gaps": ["missing_skill1"],
-  "experience_level_required": "3-5 years",
-  "questions_to_ask_user": [
-    {{"skill": "Docker", "question": "Do you have hands-on Docker experience?"}}
-  ],
-  "jd_summary": "2-3 sentence summary of what this role requires"
+  "detected_skills": ["list", "of", "ALL", "skills", "technologies", "tools", "mentioned", "or", "implied"],
+  "critical_skills": ["subset", "that", "are", "MUST-HAVE", "deal-breakers"],
+  "nice_to_have_skills": ["skills", "that", "give", "bonus", "points", "but", "are", "optional"],
+  "experience_level": "Fresher / 1-3 years / 3-5 years / 5-10 years / 10+ years",
+  "key_responsibilities": ["responsibility 1", "responsibility 2"],
+  "ats_keywords": ["exact", "phrases", "an", "ATS", "would", "scan", "for"],
+  "jd_summary": "2-3 sentence summary of this role"
 }}
 
-Return ONLY valid compact JSON. No markdown fences, no explanation."""
+IMPORTANT RULES:
+- detected_skills must have AT LEAST 8-15 items. Read carefully - skills are often hidden in sentences.
+- Extract programming languages, frameworks, cloud services, databases, methodologies (Agile, Scrum), soft skills, domain knowledge.
+- For a software engineering role, always include: version control (Git), communication skills, problem-solving even if not stated.
+- critical_skills = skills mentioned multiple times or listed first in requirements.
+- ats_keywords = exact phrases HR software would search for (e.g., "RESTful APIs", "CI/CD pipeline", "cross-functional teams").
+- Return ONLY valid JSON. No markdown fences."""
 
     response = await _client.chat.completions.create(
-        model=settings.GROK_MODEL,
+        model=settings.GEMINI_MODEL,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
-        max_tokens=1500
+        temperature=0.1,
+        max_tokens=2000
     )
     raw = response.choices[0].message.content.strip()
     try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
+        return _parse_json(raw)
+    except Exception:
         return {"error": "AI response could not be parsed", "raw": raw}
 
 
@@ -58,36 +72,94 @@ async def generate_latex_resume(
     country: str
 ) -> str:
     profile_text = json.dumps(user_profile, indent=2, default=str)
-    prompt = f"""You are an expert resume writer and LaTeX typesetter. Generate a complete, ATS-friendly LaTeX resume.
 
-Candidate Profile:
+    prompt = f"""You are an elite ATS resume engineer. Your ONLY goal is to maximize the ATS score for this resume.
+
+CANDIDATE PROFILE:
 {profile_text}
 
-Job Description:
+JOB DESCRIPTION (extract EVERY keyword from this):
 {job_description}
 
-Confirmed Skills (user has these): {confirmed_skills}
-Skills to Add (critical for this role, add even if not in original CV): {skills_to_add}
-Role Category: {role_category}
-Target Country: {country}
+Skills candidate confirmed having: {confirmed_skills}
+Skills to weave in (candidate is learning or familiar with): {skills_to_add}
+Role: {role_category} | Country: {country}
 
-Rules:
-1. Use article documentclass, geometry package for margins, hyperref for links.
-2. Sections: Contact Header, Professional Summary, Work Experience, Projects, Education, Skills, Certifications (if any).
-3. Tailor the professional summary to the job description keywords.
-4. Include all skills_to_add in the Skills section.
-5. If the candidate has a prestigious institution (IIT, NIT, IIM, MIT, Stanford, etc.) or CGPA above 8.5, highlight it prominently.
-6. Use strong action verbs and quantified achievements in experience bullets.
-7. Keep to 1 page if under 3 years experience, 2 pages otherwise.
-8. Return ONLY the complete LaTeX code starting with \\documentclass. No fences, no explanation."""
+═══════════════════════════════════════════════════
+ATS OPTIMIZATION RULES — FOLLOW EVERY SINGLE ONE:
+═══════════════════════════════════════════════════
+
+1. KEYWORD MIRRORING:
+   - Extract the EXACT technical terms, tools, and phrases from the JD.
+   - These exact strings MUST appear verbatim in the resume: in Summary, Skills section, and woven into bullet points.
+   - If JD says "RESTful APIs", write "RESTful APIs" not "REST APIs".
+   - If JD says "cross-functional collaboration", write those exact words.
+
+2. SKILLS SECTION — CRITICAL:
+   - List ALL skills from confirmed_skills + skills_to_add + skills mentioned in JD.
+   - Group them: Languages | Frameworks | Tools | Cloud | Databases | Methodologies
+   - Include EVERY keyword from the JD that could be a skill, even if barely mentioned.
+   - It's acceptable to list skills the candidate is "learning" or "familiar with".
+
+3. PROFESSIONAL SUMMARY — 4-5 sentences:
+   - First sentence: "{role_category} professional with [X years] of experience in [top 3 JD skills]."
+   - Mention the TARGET COMPANY name if provided (personalizes the resume).
+   - Pack in as many JD keywords as grammatically possible.
+   - End with: "Passionate about [domain from JD] and eager to contribute to [company/team goal]."
+
+4. WORK EXPERIENCE bullets — EACH bullet must:
+   - Start with a strong action verb (Engineered, Architected, Led, Optimized, Implemented, Deployed, Automated).
+   - Include a metric/number whenever possible (even estimated): "Reduced load time by ~40%", "Served 10K+ daily users".
+   - Embed JD keywords naturally: "Built RESTful APIs using Node.js...", "Implemented CI/CD pipelines...".
+   - If the candidate has no work experience, create 2 internship/project-style bullets that sound professional.
+
+5. PROJECTS SECTION — ESSENTIAL for freshers:
+   - Each project: Name | Tech Stack | 2-3 bullet points
+   - Tech stack MUST include JD-relevant technologies.
+   - Bullets should mention scale: "Processed 1M+ records", "Reduced query time by 60%".
+   - Add realistic GitHub link placeholder: \\href{{https://github.com/user/project}}{{github.com/user/repo}}
+
+6. EDUCATION:
+   - If CGPA >= 8.0 or institution is prestigious (IIT, NIT, IIM, BITS, VIT, IIIT, MIT, Stanford, etc.), add a line: "Relevant Coursework: Data Structures, OS, DBMS, CN, [JD-relevant subjects]".
+
+7. CERTIFICATIONS — add these if skills_to_add list is non-empty:
+   - Create a "Currently Learning / Certifications" section.
+   - E.g., "AWS Solutions Architect (In Progress)", "Google Cloud Professional (Pursuing)".
+   - This shows initiative and gets ATS keyword matches for cloud/tools skills.
+
+8. STRUCTURE AND FORMATTING — LaTeX requirements:
+   - Use \\documentclass{{article}}
+   - Packages: geometry (margins: top=0.5in, bottom=0.5in, left=0.6in, right=0.6in), hyperref, enumitem, titlesec, fontenc, inputenc
+   - Section headers: \\section*{{}} with \\hrule below each
+   - Bullet points: \\begin{{itemize}}[leftmargin=*, noitemsep, topsep=2pt]
+   - Font: \\usepackage{{helvet}} \\renewcommand{{\\familydefault}}{{\\sfdefault}} for clean ATS-parseable sans-serif
+   - Contact line: Name (\\Large\\textbf) | Email | Phone | LinkedIn | GitHub all on ONE line separated by | 
+   - No tables, no columns, no text boxes (ATS parsers choke on these)
+   - 1 page for <3 years experience, 2 pages for senior
+
+9. HONESTY BALANCE:
+   - Skills the candidate confirmed having (confirmed_skills): present confidently.
+   - Skills to add (skills_to_add): mention as "familiar with", "exposure to", or "currently upskilling in".
+   - Never outright lie but optimize framing: "Experience with X" can mean brief exposure.
+   - The goal is to GET the interview, not to be dishonest — the candidate can learn during the process.
+
+10. ABSOLUTE REQUIREMENTS:
+    - Every keyword from ats_keywords list extracted from the JD MUST appear somewhere in the resume.
+    - The Skills section must be the most keyword-dense section.
+    - Return ONLY the raw LaTeX code starting with \\documentclass. No explanation, no fences.
+
+Generate the complete LaTeX resume now:"""
 
     response = await _client.chat.completions.create(
-        model=settings.GROK_MODEL,
+        model=settings.GEMINI_MODEL,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.3,
-        max_tokens=4000
+        temperature=0.2,
+        max_tokens=6000
     )
-    return response.choices[0].message.content.strip()
+    content = response.choices[0].message.content.strip()
+    # Strip any accidental markdown fences Gemini may add
+    content = re.sub(r"^```(?:latex)?\s*|\s*```$", "", content, flags=re.MULTILINE).strip()
+    return content
 
 
 async def generate_company_analysis(company_name: str, experiences: list) -> dict:
@@ -116,35 +188,47 @@ Return a JSON object with EXACTLY this structure:
   "candidate_experience_rating": 8
 }}
 
-Return ONLY valid compact JSON. No markdown, no explanation."""
+Return ONLY valid JSON. No markdown, no explanation."""
 
     response = await _client.chat.completions.create(
-        model=settings.GROK_MODEL,
+        model=settings.GEMINI_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3,
         max_tokens=1000
     )
     raw = response.choices[0].message.content.strip()
     try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
+        return _parse_json(raw)
+    except Exception:
         return {}
 
 
 async def skill_gap_response(skill: str, user_answer: str, is_critical: bool) -> dict:
-    prompt = f"""Candidate answered "{user_answer}" about knowing "{skill}" (critical for this role: {is_critical}).
-Generate a short encouraging chat response (1-2 sentences) and decide what to do.
-Return JSON: {{"message": "...", "action": "add_to_resume|add_as_learning|skip", "learning_resources": ["resource name or url"] }}
-Return ONLY valid compact JSON."""
+    prompt = f"""You are a friendly career coach helping someone land a job.
+
+The skill "{skill}" is {"CRITICAL for this role" if is_critical else "helpful for this role"}.
+The candidate said: "{user_answer}"
+
+Based on their answer:
+1. Give 1-2 encouraging sentences of feedback.
+2. Decide the action: 
+   - "add_to_resume" = they have it or have some exposure
+   - "add_as_learning" = they're learning it / can frame it as in-progress
+   - "skip" = completely unrelated, skip it
+3. Suggest 1-2 free learning resources if action is "add_as_learning"
+
+Return JSON:
+{{"message": "your encouraging feedback", "action": "add_to_resume|add_as_learning|skip", "feedback": "short coaching note", "learning_resources": ["resource name or url"] }}
+Return ONLY valid JSON. No markdown fences."""
 
     response = await _client.chat.completions.create(
-        model=settings.GROK_MODEL,
+        model=settings.GEMINI_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.5,
-        max_tokens=300
+        max_tokens=400
     )
     raw = response.choices[0].message.content.strip()
     try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
+        return _parse_json(raw)
+    except Exception:
         return {"message": "Got it, noted!", "action": "add_to_resume", "learning_resources": []}

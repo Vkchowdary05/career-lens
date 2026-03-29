@@ -78,15 +78,20 @@ async def generate_resume(
     current_user=Depends(get_current_user),
     db=Depends(get_db)
 ):
-    confirmed_skills = [a.skill for a in data.skill_answers if a.answer in ["yes", "somewhat"]]
-    skills_to_add = [a.skill for a in data.skill_answers if a.answer == "no"]
+    # All answered skills go to confirmed (candidate has experience they described)
+    # Skills not answered can be added as "learning" 
+    confirmed_skills = [a.skill for a in data.skill_answers if a.answer and len(a.answer.strip()) > 2]
+    skills_to_add = []  # Will be determined by AI based on JD gap analysis
 
     profile_dict = data.profile.dict()
-    profile_dict.pop("cv_extracted_text", None)
+    cv_text = profile_dict.pop("cv_extracted_text", None) or ""
+
+    # Build a richer context string if CV was uploaded
+    cv_context = f"\n\nExtracted CV text:\n{cv_text[:4000]}" if cv_text else ""
 
     latex_code = await generate_latex_resume(
         user_profile=profile_dict,
-        job_description=data.job_details.job_description,
+        job_description=data.job_details.job_description + cv_context,
         confirmed_skills=confirmed_skills,
         skills_to_add=skills_to_add,
         role_category=data.job_details.role_category,

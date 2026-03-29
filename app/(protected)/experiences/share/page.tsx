@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,11 +9,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/modal'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { GripVertical, Plus, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { GripVertical, Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ROUND_TYPES, DIFFICULTY_LEVELS, APPLICATION_SOURCES } from '@/lib/constants'
+import { experiencesApi } from '@/lib/api'
 
 interface InterviewRound {
   id: string
@@ -21,20 +21,28 @@ interface InterviewRound {
   difficulty: string
   narrative: string
   questions: { id: string; text: string }[]
-  expanded: boolean
+  cleared: boolean
 }
 
 export default function ShareExperiencePage() {
+  const router = useRouter()
   const [currentSection, setCurrentSection] = useState(0)
   const [companyName, setCompanyName] = useState('')
   const [role, setRole] = useState('')
+  const [employmentType, setEmploymentType] = useState('Full-time')
+  const [experienceLevel, setExperienceLevel] = useState('Fresher')
+  const [location, setLocation] = useState('')
   const [applicationSource, setApplicationSource] = useState('')
   const [rounds, setRounds] = useState<InterviewRound[]>([])
   const [outcome, setOutcome] = useState('')
-  const [salary, setSalary] = useState('')
+  const [packageRange, setPackageRange] = useState('')
+  const [bondDetails, setBondDetails] = useState('')
+  const [joiningTimeline, setJoiningTimeline] = useState('')
   const [tips, setTips] = useState('')
   const [visibility, setVisibility] = useState('Public')
   const [points, setPoints] = useState(0)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
   const sections = [
     { title: 'Company & Role', icon: '🏢' },
@@ -50,7 +58,7 @@ export default function ShareExperiencePage() {
     if (role) calculatedPoints += 10
     if (rounds.length > 0) calculatedPoints += 20 * rounds.length
     if (outcome) calculatedPoints += 15
-    if (salary) calculatedPoints += 20
+    if (packageRange) calculatedPoints += 20
     if (tips) calculatedPoints += 15
     setPoints(calculatedPoints)
   }
@@ -63,7 +71,7 @@ export default function ShareExperiencePage() {
       difficulty: 'Medium',
       narrative: '',
       questions: [],
-      expanded: true,
+      cleared: true,
     }
     setRounds([...rounds, newRound])
   }
@@ -77,16 +85,73 @@ export default function ShareExperiencePage() {
   }
 
   const addQuestion = (roundId: string) => {
-    setRounds(rounds.map(r => 
-      r.id === roundId 
+    setRounds(rounds.map(r =>
+      r.id === roundId
         ? { ...r, questions: [...r.questions, { id: Math.random().toString(), text: '' }] }
         : r
     ))
   }
 
+  const updateQuestion = (roundId: string, questionId: string, text: string) => {
+    setRounds(rounds.map(r =>
+      r.id === roundId
+        ? { ...r, questions: r.questions.map(q => q.id === questionId ? { ...q, text } : q) }
+        : r
+    ))
+  }
+
+  const handleSubmit = async () => {
+    if (!companyName || !role || !applicationSource || !outcome) {
+      setError('Please fill in all required fields: Company, Role, Application Source, and Outcome.')
+      return
+    }
+    if (rounds.length === 0) {
+      setError('Please add at least one interview round.')
+      return
+    }
+
+    setSubmitting(true)
+    setError('')
+
+    try {
+      const payload = {
+        company_name: companyName,
+        role: role,
+        employment_type: employmentType,
+        experience_level: experienceLevel,
+        location: location,
+        country: 'India',
+        application_source: applicationSource,
+        rounds: rounds.map((r, idx) => ({
+          round_number: idx + 1,
+          round_type: r.type || 'Technical Interview',
+          duration_minutes: r.duration,
+          difficulty: r.difficulty,
+          narrative: r.narrative,
+          cleared: r.cleared,
+          questions_asked: r.questions.map(q => q.text).filter(Boolean),
+        })),
+        outcome: outcome,
+        package_range: packageRange || undefined,
+        bond_details: bondDetails || undefined,
+        joining_timeline: joiningTimeline || undefined,
+        tips_and_advice: tips || undefined,
+        is_public: visibility === 'Public',
+        allow_questions: true,
+      }
+
+      const result = await experiencesApi.create(payload)
+      router.push(`/experiences/${result.id}`)
+    } catch (err: any) {
+      setError(err.message || 'Failed to publish experience. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   React.useEffect(() => {
     calculatePoints()
-  }, [companyName, role, rounds, outcome, salary, tips])
+  }, [companyName, role, rounds, outcome, packageRange, tips])
 
   return (
     <div className='min-h-screen bg-background p-6'>
@@ -96,6 +161,12 @@ export default function ShareExperiencePage() {
           <h1 className='text-3xl font-bold mb-2'>Share Your Interview Experience</h1>
           <p className='text-muted-foreground'>Help others by sharing your interview journey. Earn points for detailed contributions.</p>
         </div>
+
+        {error && (
+          <div className='mb-6 p-4 rounded-lg bg-destructive/10 text-destructive text-sm'>
+            {error}
+          </div>
+        )}
 
         <div className='grid grid-cols-1 lg:grid-cols-4 gap-6'>
           {/* Left: Section Navigation */}
@@ -145,7 +216,7 @@ export default function ShareExperiencePage() {
                 </CardHeader>
                 <CardContent className='space-y-4'>
                   <div>
-                    <label className='text-sm font-medium mb-1 block'>Company Name</label>
+                    <label className='text-sm font-medium mb-1 block'>Company Name *</label>
                     <Input
                       placeholder='e.g., Google, Microsoft, Amazon'
                       value={companyName}
@@ -153,11 +224,43 @@ export default function ShareExperiencePage() {
                     />
                   </div>
                   <div>
-                    <label className='text-sm font-medium mb-1 block'>Position/Role</label>
+                    <label className='text-sm font-medium mb-1 block'>Position/Role *</label>
                     <Input
                       placeholder='e.g., Software Engineer, Product Manager'
                       value={role}
                       onChange={(e) => setRole(e.target.value)}
+                    />
+                  </div>
+                  <div className='grid grid-cols-2 gap-4'>
+                    <div>
+                      <label className='text-sm font-medium mb-1 block'>Employment Type</label>
+                      <Select value={employmentType} onValueChange={setEmploymentType}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {['Full-time', 'Internship', 'Contract', 'Part-time'].map((t) => (
+                            <SelectItem key={t} value={t}>{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className='text-sm font-medium mb-1 block'>Experience Level</label>
+                      <Select value={experienceLevel} onValueChange={setExperienceLevel}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {['Fresher', '1-3 years', '3-5 years', '5-10 years', '10+ years'].map((l) => (
+                            <SelectItem key={l} value={l}>{l}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className='text-sm font-medium mb-1 block'>Location</label>
+                    <Input
+                      placeholder='e.g., Bangalore, Remote'
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
                     />
                   </div>
                   <div className='flex gap-4 pt-4'>
@@ -177,7 +280,7 @@ export default function ShareExperiencePage() {
                 </CardHeader>
                 <CardContent className='space-y-4'>
                   <div>
-                    <label className='text-sm font-medium mb-2 block'>Where did you apply?</label>
+                    <label className='text-sm font-medium mb-2 block'>Where did you apply? *</label>
                     <Select value={applicationSource} onValueChange={setApplicationSource}>
                       <SelectTrigger>
                         <SelectValue placeholder='Select application source' />
@@ -210,7 +313,7 @@ export default function ShareExperiencePage() {
                   <CardDescription>Add each round of your interview process</CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-4'>
-                  <div className='space-y-3 max-h-96 overflow-y-auto'>
+                  <div className='space-y-3 max-h-[500px] overflow-y-auto'>
                     {rounds.map((round, idx) => (
                       <div
                         key={round.id}
@@ -254,29 +357,36 @@ export default function ShareExperiencePage() {
                               type='number'
                               value={round.duration}
                               onChange={(e) =>
-                                updateRound(round.id, { duration: parseInt(e.target.value) })
+                                updateRound(round.id, { duration: parseInt(e.target.value) || 60 })
                               }
                             />
                           </div>
                         </div>
 
-                        <div>
-                          <label className='text-xs font-medium mb-1 block'>Difficulty</label>
-                          <Select
-                            value={round.difficulty}
-                            onValueChange={(value) => updateRound(round.id, { difficulty: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {DIFFICULTY_LEVELS.map((level) => (
-                                <SelectItem key={level} value={level}>
-                                  {level}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                        <div className='grid grid-cols-2 gap-3'>
+                          <div>
+                            <label className='text-xs font-medium mb-1 block'>Difficulty</label>
+                            <Select
+                              value={round.difficulty}
+                              onValueChange={(value) => updateRound(round.id, { difficulty: value })}
+                            >
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {DIFFICULTY_LEVELS.map((level) => (
+                                  <SelectItem key={level} value={level}>{level}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className='flex items-end pb-1'>
+                            <label className='flex items-center gap-2 cursor-pointer'>
+                              <Checkbox
+                                checked={round.cleared}
+                                onCheckedChange={(checked) => updateRound(round.id, { cleared: !!checked })}
+                              />
+                              <span className='text-sm'>Cleared this round</span>
+                            </label>
+                          </div>
                         </div>
 
                         <div>
@@ -304,7 +414,8 @@ export default function ShareExperiencePage() {
                             <Input
                               key={q.id}
                               placeholder='e.g., Design a URL shortener'
-                              defaultValue={q.text}
+                              value={q.text}
+                              onChange={(e) => updateQuestion(round.id, q.id, e.target.value)}
                               className='text-sm'
                             />
                           ))}
@@ -338,32 +449,52 @@ export default function ShareExperiencePage() {
                 </CardHeader>
                 <CardContent className='space-y-4'>
                   <div>
-                    <label className='text-sm font-medium mb-2 block'>Outcome</label>
+                    <label className='text-sm font-medium mb-2 block'>Outcome *</label>
                     <Select value={outcome} onValueChange={setOutcome}>
                       <SelectTrigger>
                         <SelectValue placeholder='Select outcome' />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value='Selected'>Selected / Offer Received</SelectItem>
-                        <SelectItem value='Rejected'>Rejected</SelectItem>
+                        <SelectItem value='Got the Offer'>Got the Offer</SelectItem>
+                        <SelectItem value='Rejected after Rounds'>Rejected after Rounds</SelectItem>
+                        <SelectItem value='Ghosted'>Ghosted</SelectItem>
+                        <SelectItem value='Withdrew Application'>Withdrew Application</SelectItem>
                         <SelectItem value='Pending'>Pending Decision</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {outcome === 'Selected' && (
-                    <div>
-                      <label className='text-sm font-medium mb-1 block'>
-                        Total Compensation (Annual)
-                      </label>
-                      <Input
-                        type='number'
-                        placeholder='e.g., 200000'
-                        value={salary}
-                        onChange={(e) => setSalary(e.target.value)}
-                      />
-                    </div>
-                  )}
+                  <div>
+                    <label className='text-sm font-medium mb-1 block'>Package Range</label>
+                    <Select value={packageRange} onValueChange={setPackageRange}>
+                      <SelectTrigger><SelectValue placeholder='Select range (optional)' /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='< 5 LPA'>{'< 5 LPA'}</SelectItem>
+                        <SelectItem value='5-10 LPA'>5-10 LPA</SelectItem>
+                        <SelectItem value='10-20 LPA'>10-20 LPA</SelectItem>
+                        <SelectItem value='20-40 LPA'>20-40 LPA</SelectItem>
+                        <SelectItem value='40+ LPA'>40+ LPA</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className='text-sm font-medium mb-1 block'>Bond Details (optional)</label>
+                    <Input
+                      placeholder='e.g., 2 year bond, ₹2L penalty'
+                      value={bondDetails}
+                      onChange={(e) => setBondDetails(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className='text-sm font-medium mb-1 block'>Joining Timeline (optional)</label>
+                    <Input
+                      placeholder='e.g., Immediate, 3 months'
+                      value={joiningTimeline}
+                      onChange={(e) => setJoiningTimeline(e.target.value)}
+                    />
+                  </div>
 
                   <div className='flex gap-4 pt-4'>
                     <Button variant='outline' onClick={() => setCurrentSection(2)}>
@@ -422,7 +553,13 @@ export default function ShareExperiencePage() {
                     <Button variant='outline' onClick={() => setCurrentSection(3)}>
                       Back
                     </Button>
-                    <Button className='ml-auto'>Publish Experience</Button>
+                    <Button
+                      className='ml-auto'
+                      onClick={handleSubmit}
+                      disabled={submitting}
+                    >
+                      {submitting ? 'Publishing...' : 'Publish Experience'}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

@@ -102,7 +102,7 @@ export const experiencesApi = {
     if (params?.role) q.set("role", params.role);
     if (params?.outcome) q.set("outcome", params.outcome);
     if (params?.page) q.set("page", String(params.page));
-    return request(`/api/experiences?${q.toString()}`);
+    return request(`/api/experiences/?${q.toString()}`);
   },
   create: (data: Record<string, any>) =>
     request("/api/experiences/", { method: "POST", body: JSON.stringify(data) }),
@@ -126,7 +126,7 @@ export const companiesApi = {
     if (params?.search) q.set("search", params.search);
     if (params?.sort_by) q.set("sort_by", params.sort_by);
     if (params?.page) q.set("page", String(params.page));
-    return request(`/api/companies?${q.toString()}`);
+    return request(`/api/companies/?${q.toString()}`);
   },
   get: (slug: string) => request(`/api/companies/${slug}`),
   getAnalysis: (slug: string) => request(`/api/companies/${slug}/analysis`),
@@ -188,7 +188,7 @@ export const trackerApi = {
 // ── LEADERBOARD ────────────────────────────────────────────────────────────
 
 export const leaderboardApi = {
-  get: (page = 1) => request(`/api/leaderboard?page=${page}`),
+  get: (page = 1) => request(`/api/leaderboard/?page=${page}`),
 };
 
 // ── NOTIFICATIONS ──────────────────────────────────────────────────────────
@@ -197,7 +197,7 @@ export const notificationsApi = {
   list: (page = 1, type?: string) => {
     const q = new URLSearchParams({ page: String(page) });
     if (type) q.set("notif_type", type);
-    return request(`/api/notifications?${q.toString()}`);
+    return request(`/api/notifications/?${q.toString()}`);
   },
   getUnreadCount: () => request("/api/notifications/unread-count"),
 };
