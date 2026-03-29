@@ -13,6 +13,7 @@ import {
   signInWithPopup,
   googleProvider,
 } from '@/lib/firebase'
+import { authApi } from '@/lib/api'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -27,7 +28,13 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      const cred = await signInWithEmailAndPassword(auth, email, password)
+      await authApi.register({
+        firebase_uid: cred.user.uid,
+        email: cred.user.email || email,
+        full_name: cred.user.displayName || 'User',
+        auth_provider: 'email'
+      })
       router.push('/feed')
     } catch (err: any) {
       const msg = err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password'
@@ -45,7 +52,14 @@ export default function LoginPage() {
     setError('')
     setGoogleLoading(true)
     try {
-      await signInWithPopup(auth, googleProvider)
+      const cred = await signInWithPopup(auth, googleProvider)
+      await authApi.register({
+        firebase_uid: cred.user.uid,
+        email: cred.user.email || '',
+        full_name: cred.user.displayName || 'Google User',
+        photo_url: cred.user.photoURL,
+        auth_provider: 'google'
+      })
       router.push('/feed')
     } catch (err: any) {
       if (err.code !== 'auth/popup-closed-by-user') {

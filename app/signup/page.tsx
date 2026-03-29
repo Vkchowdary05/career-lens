@@ -14,6 +14,7 @@ import {
   googleProvider,
 } from '@/lib/firebase'
 import { updateProfile } from 'firebase/auth'
+import { authApi } from '@/lib/api'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -53,6 +54,12 @@ export default function SignupPage() {
     try {
       const cred = await createUserWithEmailAndPassword(auth, formData.email, formData.password)
       await updateProfile(cred.user, { displayName: formData.name })
+      await authApi.register({
+        firebase_uid: cred.user.uid,
+        email: cred.user.email || formData.email,
+        full_name: formData.name,
+        auth_provider: 'email'
+      })
       router.push('/feed')
     } catch (err: any) {
       const msg = err.code === 'auth/email-already-in-use'
@@ -70,7 +77,14 @@ export default function SignupPage() {
     setError('')
     setGoogleLoading(true)
     try {
-      await signInWithPopup(auth, googleProvider)
+      const cred = await signInWithPopup(auth, googleProvider)
+      await authApi.register({
+        firebase_uid: cred.user.uid,
+        email: cred.user.email || '',
+        full_name: cred.user.displayName || 'Google User',
+        photo_url: cred.user.photoURL,
+        auth_provider: 'google'
+      })
       router.push('/feed')
     } catch (err: any) {
       if (err.code !== 'auth/popup-closed-by-user') {
