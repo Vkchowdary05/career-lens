@@ -1,9 +1,9 @@
 'use client'
 
 import React from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { ThumbsUp, MessageCircle, Share2, Bookmark } from 'lucide-react'
 
 export default function ExperienceDetailPage({ params }: { params: { id: string } }) {

@@ -1,9 +1,9 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Trophy, Medal } from 'lucide-react'
 
 interface User {

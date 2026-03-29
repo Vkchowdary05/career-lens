@@ -8,6 +8,7 @@ import {
   sendPasswordResetEmail,
   signOut,
   onAuthStateChanged,
+  updateProfile,
   User
 } from "firebase/auth";
 
@@ -24,6 +25,8 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+
 export async function getAuthToken(): Promise<string | null> {
   const user = auth.currentUser;
   if (!user) return null;
@@ -36,7 +39,8 @@ export {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  updateProfile,
 };
 
 export type { User };
