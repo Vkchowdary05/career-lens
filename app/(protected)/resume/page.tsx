@@ -119,11 +119,23 @@ export default function ResumePage() {
         target_city: jobDetails.target_city || undefined,
         target_company: jobDetails.target_company || undefined,
       })
-      setJdAnalysis(data)
+      if (data.error && (!data.detected_skills || data.detected_skills.length === 0)) {
+        setAiError(`Analysis issue: ${data.error}. Please try again.`)
+      } else {
+        // Ensure arrays exist even if empty
+        const analysis: JdAnalysis = {
+          detected_skills: Array.isArray(data.detected_skills) ? data.detected_skills : [],
+          critical_skills: Array.isArray(data.critical_skills) ? data.critical_skills : [],
+          nice_to_have_skills: Array.isArray(data.nice_to_have_skills) ? data.nice_to_have_skills : [],
+          experience_level: data.experience_level || 'Not specified',
+          key_responsibilities: Array.isArray(data.key_responsibilities) ? data.key_responsibilities : [],
+        }
+        setJdAnalysis(analysis)
+      }
     } catch (e: any) {
       const msg = e?.message || ''
       if (msg.includes('credits') || msg.includes('permission') || msg.includes('403')) {
-        setAiError('AI service unavailable: The xAI API key has no credits. Please top up at https://console.x.ai to use this feature.')
+        setAiError('AI service unavailable: The API key has no credits. Please check your API configuration.')
       } else {
         setAiError(`Failed to analyze job description: ${msg || 'Please try again.'}`)
       }
@@ -149,7 +161,9 @@ export default function ResumePage() {
 
   // Step 3: Start skill chat
   const startSkillChat = () => {
-    const skills = jdAnalysis?.detected_skills || jdAnalysis?.critical_skills || []
+    const detectedSkills = jdAnalysis?.detected_skills || []
+    const criticalSkills = jdAnalysis?.critical_skills || []
+    const skills = detectedSkills.length > 0 ? detectedSkills : criticalSkills
     if (skills.length === 0) {
       setSkillMessages([{ role: 'ai', content: 'No specific skills detected from the JD. You can proceed to generate your resume.' }])
       return
@@ -159,13 +173,15 @@ export default function ResumePage() {
       role: 'ai',
       content: `I detected ${skills.length} key skills from the job description. Let me assess your experience with each one.\n\nFirst up: **${skills[0]}**\n\nHow would you rate your experience with ${skills[0]}? Please describe your practical experience.`,
       skill: skills[0],
-      isCritical: jdAnalysis?.critical_skills?.includes(skills[0]),
+      isCritical: criticalSkills.includes(skills[0]),
     }])
   }
 
   const handleSkillAnswer = async () => {
     if (!userAnswer.trim()) return
-    const skills = jdAnalysis?.detected_skills || jdAnalysis?.critical_skills || []
+    const detectedSkills = jdAnalysis?.detected_skills || []
+    const criticalSkills = jdAnalysis?.critical_skills || []
+    const skills = detectedSkills.length > 0 ? detectedSkills : criticalSkills
     const currentSkill = skills[currentSkillIdx]
     if (!currentSkill) return
 

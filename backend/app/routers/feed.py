@@ -21,14 +21,18 @@ def _s(doc: dict) -> dict:
 
 async def _enrich_post(post: dict, current_user_id, db) -> dict:
     post = _s(post)
-    author = await db.users.find_one({"_id": ObjectId(post["author_id"]) if isinstance(post["author_id"], str) else post["author_id"]})
+    author_id = post.get("author_id", "")
+    try:
+        author = await db.users.find_one({"_id": ObjectId(author_id)})
+    except Exception:
+        author = None
     if author:
         post["author"] = {
             "username": author["username"],
             "full_name": author["full_name"],
             "photo_url": author.get("photo_url")
         }
-    post["is_liked"] = str(current_user_id) in post.get("likes", [])
+    post["is_liked"] = str(current_user_id) in [str(x) for x in post.get("likes", [])]
     return post
 
 @router.get("/posts")
@@ -56,7 +60,7 @@ async def create_post(
 ):
     now = datetime.datetime.utcnow()
     doc = data.dict()
-    doc["author_id"] = current_user["_id"]
+    doc["author_id"] = str(current_user["_id"])
     doc["likes"] = []
     doc["likes_count"] = 0
     doc["comments_count"] = 0
@@ -82,17 +86,18 @@ async def toggle_like(
     post = await db.posts.find_one({"_id": oid})
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-    uid = current_user["_id"]
-    already = uid in post.get("likes", [])
+    uid_str = str(current_user["_id"])
+    existing_likes = [str(x) for x in post.get("likes", [])]
+    already = uid_str in existing_likes
     if already:
-        await db.posts.update_one({"_id": oid}, {"$pull": {"likes": uid}, "$inc": {"likes_count": -1}})
-        return {"liked": False, "likes_count": post.get("likes_count", 1) - 1}
+        await db.posts.update_one({"_id": oid}, {"$pull": {"likes": uid_str}, "$inc": {"likes_count": -1}})
+        return {"liked": False, "likes_count": max(post.get("likes_count", 1) - 1, 0)}
     else:
-        await db.posts.update_one({"_id": oid}, {"$addToSet": {"likes": uid}, "$inc": {"likes_count": 1}})
+        await db.posts.update_one({"_id": oid}, {"$addToSet": {"likes": uid_str}, "$inc": {"likes_count": 1}})
         await award_points(post["author_id"], "post_liked_received", db)
         await db.notifications.insert_one({
             "recipient_id": post["author_id"],
-            "sender_id": uid,
+            "sender_id": uid_str,
             "sender_name": current_user.get("full_name", ""),
             "sender_photo": current_user.get("photo_url"),
             "type": "like",

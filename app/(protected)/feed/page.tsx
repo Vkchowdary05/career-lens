@@ -197,13 +197,34 @@ function CreatePostCard({ onPost }: { onPost: (post: Post) => void }) {
   const [content, setContent] = useState('')
   const [postType, setPostType] = useState('general')
   const [isPosting, setIsPosting] = useState(false)
+  const [companyName, setCompanyName] = useState('')
+  const [roleTitle, setRoleTitle] = useState('')
+  const [location, setLocation] = useState('')
+  const [packageRange, setPackageRange] = useState('')
+  const [applyUrl, setApplyUrl] = useState('')
+
+  const isJobType = postType === 'job_post' || postType === 'internship_post'
 
   const handleSubmit = async () => {
     if (!content.trim()) return
     setIsPosting(true)
     try {
-      const newPost = await feedApi.createPost({ content, post_type: postType, tags: [] })
+      const payload: Record<string, any> = { content, post_type: postType, tags: [] }
+      if (isJobType) {
+        if (companyName) payload.company_name = companyName
+        if (roleTitle) payload.role_title = roleTitle
+        if (location) payload.location = location
+        if (packageRange) payload.package_range = packageRange
+        if (applyUrl) payload.apply_url = applyUrl
+      }
+      const newPost = await feedApi.createPost(payload)
       setContent('')
+      setCompanyName('')
+      setRoleTitle('')
+      setLocation('')
+      setPackageRange('')
+      setApplyUrl('')
+      setPostType('general')
       onPost(newPost)
     } catch (e) {
       console.error(e)
@@ -222,6 +243,17 @@ function CreatePostCard({ onPost }: { onPost: (post: Post) => void }) {
           value={content}
           onChange={(e) => setContent(e.target.value)}
         />
+
+        {isJobType && (
+          <div className='grid grid-cols-2 gap-2 p-3 rounded-md border border-border bg-muted/30'>
+            <Input placeholder='Company Name' value={companyName} onChange={(e) => setCompanyName(e.target.value)} className='h-8 text-xs' />
+            <Input placeholder='Role Title' value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} className='h-8 text-xs' />
+            <Input placeholder='Location' value={location} onChange={(e) => setLocation(e.target.value)} className='h-8 text-xs' />
+            <Input placeholder='Package Range (e.g., 10-15 LPA)' value={packageRange} onChange={(e) => setPackageRange(e.target.value)} className='h-8 text-xs' />
+            <Input placeholder='Apply URL (optional)' value={applyUrl} onChange={(e) => setApplyUrl(e.target.value)} className='h-8 text-xs col-span-2' />
+          </div>
+        )}
+
         <div className='flex items-center justify-between'>
           <div className='flex gap-2'>
             {['general', 'job_post', 'internship_post'].map((type) => (
