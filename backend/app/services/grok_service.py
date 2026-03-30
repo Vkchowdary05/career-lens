@@ -1,7 +1,10 @@
 import json
 import re
+import logging
 from openai import AsyncOpenAI
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Gemini 2.5 Flash via OpenAI-compatible endpoint
 _client = AsyncOpenAI(
@@ -11,9 +14,40 @@ _client = AsyncOpenAI(
 
 
 def _parse_json(raw: str) -> dict:
-    """Strip markdown fences that Gemini sometimes adds, then parse JSON."""
-    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip(), flags=re.MULTILINE).strip()
-    return json.loads(cleaned)
+    """Robustly extract JSON from Gemini responses using multiple strategies."""
+    if not raw or not raw.strip():
+        logger.error("Empty response from AI")
+        return {}
+
+    # Strategy 1: Strip markdown fences and parse
+    try:
+        cleaned = re.sub(r"```(?:json)?\s*", "", raw.strip())
+        cleaned = re.sub(r"\s*```", "", cleaned).strip()
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 2: Find the first { ... } block (greedy) and parse it
+    try:
+        match = re.search(r'\{[\s\S]*\}', raw)
+        if match:
+            return json.loads(match.group(0))
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 3: Try to fix common issues (trailing commas, single quotes)
+    try:
+        match = re.search(r'\{[\s\S]*\}', raw)
+        if match:
+            text = match.group(0)
+            # Remove trailing commas before } or ]
+            text = re.sub(r',\s*([}\]])', r'\1', text)
+            return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    logger.error(f"All JSON parse strategies failed. Raw response (first 500 chars): {raw[:500]}")
+    return {}
 
 
 async def analyze_jd_and_cv(job_description: str, cv_text: str, role_category: str, country: str) -> dict:
@@ -54,13 +88,21 @@ IMPORTANT RULES:
         model=settings.GEMINI_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.1,
-        max_tokens=2000
+        max_tokens=4000
     )
     raw = response.choices[0].message.content.strip()
+    logger.info(f"JD analysis raw response length: {len(raw)} chars")
     try:
-        return _parse_json(raw)
-    except Exception:
-        return {"error": "AI response could not be parsed", "raw": raw}
+        result = _parse_json(raw)
+        if not result or (not result.get("detected_skills") and not result.get("error")):
+            logger.warning(f"Parsed JSON has no detected_skills. Keys: {list(result.keys()) if result else 'empty'}")
+            # If we got an empty parse, return a meaningful error
+            if not result:
+                return {"error": "AI response could not be parsed", "raw": raw[:500]}
+        return result
+    except Exception as e:
+        logger.error(f"JD analysis parse error: {e}")
+        return {"error": f"AI response could not be parsed: {str(e)}", "raw": raw[:500]}
 
 
 async def generate_latex_resume(
@@ -154,11 +196,36 @@ Generate the complete LaTeX resume now:"""
         model=settings.GEMINI_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.2,
-        max_tokens=6000
+        max_tokens=16000
     )
     content = response.choices[0].message.content.strip()
     # Strip any accidental markdown fences Gemini may add
-    content = re.sub(r"^```(?:latex)?\s*|\s*```$", "", content, flags=re.MULTILINE).strip()
+    content = re.sub(r"```(?:latex)?\s*", "", content)
+    content = re.sub(r"\s*```", "", content).strip()
+
+    # Completeness check: if \end{document} is missing, request continuation
+    if "\\end{document}" not in content:
+        logger.warning("LaTeX output appears truncated (missing \\end{document}). Requesting continuation...")
+        try:
+            continuation = await _client.chat.completions.create(
+                model=settings.GEMINI_MODEL,
+                messages=[
+                    {"role": "user", "content": prompt},
+                    {"role": "assistant", "content": content},
+                    {"role": "user", "content": "The LaTeX code was cut off. Continue EXACTLY from where you stopped. Output ONLY the remaining LaTeX code, no explanation. Make sure it ends with \\end{document}."}
+                ],
+                temperature=0.2,
+                max_tokens=8000
+            )
+            extra = continuation.choices[0].message.content.strip()
+            extra = re.sub(r"```(?:latex)?\s*", "", extra)
+            extra = re.sub(r"\s*```", "", extra).strip()
+            content = content + "\n" + extra
+        except Exception as e:
+            logger.error(f"LaTeX continuation failed: {e}")
+            # Append a basic closing so it at least compiles
+            content += "\n\n\\end{document}"
+
     return content
 
 

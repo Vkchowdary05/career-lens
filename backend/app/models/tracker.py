@@ -13,6 +13,7 @@ class ApplicationCreate(BaseModel):
     resume_url: Optional[str] = None
     resume_public_id: Optional[str] = None
     reminder_date: Optional[datetime.datetime] = None
+    job_description: Optional[str] = None
 
 class StageUpdate(BaseModel):
     new_stage: str

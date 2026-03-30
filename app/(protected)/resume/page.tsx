@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,9 +9,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
-import { Upload, AlertCircle, Check, ChevronRight, Copy, CheckCircle2, Plus, X, Send } from 'lucide-react'
+import { Upload, AlertCircle, Check, ChevronRight, Copy, CheckCircle2, Plus, X, Send, Briefcase, ArrowRight, PartyPopper } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { resumeApi } from '@/lib/api'
+import { resumeApi, trackerApi } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 
 const ROLE_CATEGORIES = ['Engineering', 'Product', 'Design', 'Data', 'Operations']
@@ -42,6 +43,7 @@ interface ProjectEntry {
 
 export default function ResumePage() {
   const { clUser } = useAuth()
+  const router = useRouter()
   const [currentStep, setCurrentStep] = useState(0)
 
   // Step 1: Job Details
@@ -83,6 +85,19 @@ export default function ResumePage() {
   const [generating, setGenerating] = useState(false)
   const [copied, setCopied] = useState(false)
   const [aiError, setAiError] = useState('')
+
+  // Track Application (after generation)
+  const [showTrackModal, setShowTrackModal] = useState(false)
+  const [trackForm, setTrackForm] = useState({
+    company: '',
+    role: '',
+    source: 'Resume Builder',
+    priority: 'Medium',
+    employment_type: 'Full-time',
+    notes: '',
+  })
+  const [trackingApp, setTrackingApp] = useState(false)
+  const [trackSuccess, setTrackSuccess] = useState(false)
 
   const steps = [
     { number: 1, title: 'Job Details', completed: currentStep > 0 },
@@ -220,6 +235,15 @@ export default function ResumePage() {
         skill_answers: skillAnswers,
       })
       setLatexCode(data.latex || data.latex_code || '')
+      // Pre-fill tracking form with job details
+      setTrackForm({
+        company: jobDetails.target_company || '',
+        role: jobDetails.role_category || '',
+        source: 'Resume Builder',
+        priority: 'Medium',
+        employment_type: 'Full-time',
+        notes: `Generated ATS resume for this role`,
+      })
     } catch (e: any) {
       const msg = e?.message || ''
       if (msg.includes('credits') || msg.includes('permission') || msg.includes('403')) {
@@ -229,6 +253,28 @@ export default function ResumePage() {
       }
     } finally {
       setGenerating(false)
+    }
+  }
+
+  const handleTrackApplication = async () => {
+    if (!trackForm.company || !trackForm.role) return
+    setTrackingApp(true)
+    try {
+      await trackerApi.create({
+        company: trackForm.company,
+        role: trackForm.role,
+        employment_type: trackForm.employment_type,
+        source: trackForm.source,
+        priority: trackForm.priority,
+        notes: trackForm.notes,
+        applied_date: new Date().toISOString(),
+        job_description: jobDetails.job_description,
+      })
+      setTrackSuccess(true)
+    } catch (e: any) {
+      console.error('Failed to track application', e)
+    } finally {
+      setTrackingApp(false)
     }
   }
 
@@ -625,6 +671,129 @@ export default function ResumePage() {
                           💡 Copy the LaTeX code above and paste it into <a href='https://www.overleaf.com' target='_blank' rel='noopener noreferrer' className='underline font-medium'>Overleaf</a> to compile it into a PDF.
                         </p>
                       </div>
+
+                      {/* Track Application Prompt */}
+                      {!showTrackModal && !trackSuccess && (
+                        <div className='p-5 rounded-xl bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 border border-violet-200 dark:border-violet-800'>
+                          <div className='flex items-start gap-4'>
+                            <div className='h-10 w-10 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center flex-shrink-0'>
+                              <Briefcase className='h-5 w-5 text-violet-600 dark:text-violet-400' />
+                            </div>
+                            <div className='flex-1'>
+                              <h4 className='font-semibold text-violet-900 dark:text-violet-200 mb-1'>Track this application?</h4>
+                              <p className='text-sm text-violet-700 dark:text-violet-300 mb-3'>
+                                Keep track of your application progress for this role. We'll save the company, role, and job description so you can monitor your pipeline.
+                              </p>
+                              <div className='flex gap-2'>
+                                <Button size='sm' onClick={() => setShowTrackModal(true)} className='gap-2 bg-violet-600 hover:bg-violet-700'>
+                                  <CheckCircle2 className='h-4 w-4' /> Yes, Track It
+                                </Button>
+                                <Button size='sm' variant='ghost' className='text-violet-600 dark:text-violet-400'>
+                                  Skip
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Track Application Form Modal */}
+                      {showTrackModal && !trackSuccess && (
+                        <div className='p-5 rounded-xl border border-violet-200 dark:border-violet-800 bg-card space-y-4'>
+                          <div className='flex items-center justify-between'>
+                            <h4 className='font-semibold flex items-center gap-2'>
+                              <Briefcase className='h-4 w-4 text-violet-600' /> Track Application
+                            </h4>
+                            <button onClick={() => setShowTrackModal(false)} className='p-1 hover:bg-muted rounded'>
+                              <X className='h-4 w-4' />
+                            </button>
+                          </div>
+                          <div className='grid grid-cols-2 gap-3'>
+                            <div>
+                              <label className='text-sm font-medium mb-1 block'>Company *</label>
+                              <Input
+                                placeholder='e.g., Google'
+                                value={trackForm.company}
+                                onChange={(e) => setTrackForm({ ...trackForm, company: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <label className='text-sm font-medium mb-1 block'>Role *</label>
+                              <Input
+                                placeholder='e.g., Software Engineer'
+                                value={trackForm.role}
+                                onChange={(e) => setTrackForm({ ...trackForm, role: e.target.value })}
+                              />
+                            </div>
+                            <div>
+                              <label className='text-sm font-medium mb-1 block'>Employment Type</label>
+                              <Select value={trackForm.employment_type} onValueChange={(v) => setTrackForm({ ...trackForm, employment_type: v })}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {['Full-time', 'Internship', 'Contract', 'Part-time'].map((t) => (
+                                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <label className='text-sm font-medium mb-1 block'>Priority</label>
+                              <Select value={trackForm.priority} onValueChange={(v) => setTrackForm({ ...trackForm, priority: v })}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {['Low', 'Medium', 'High'].map((p) => (
+                                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div>
+                            <label className='text-sm font-medium mb-1 block'>Notes (optional)</label>
+                            <Input
+                              placeholder='Any notes...'
+                              value={trackForm.notes}
+                              onChange={(e) => setTrackForm({ ...trackForm, notes: e.target.value })}
+                            />
+                          </div>
+                          <div className='flex gap-2 justify-end'>
+                            <Button variant='outline' size='sm' onClick={() => setShowTrackModal(false)}>Cancel</Button>
+                            <Button
+                              size='sm'
+                              onClick={handleTrackApplication}
+                              disabled={trackingApp || !trackForm.company || !trackForm.role}
+                              className='gap-2 bg-violet-600 hover:bg-violet-700'
+                            >
+                              {trackingApp ? 'Adding...' : 'Add to Tracker'}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Track Success */}
+                      {trackSuccess && (
+                        <div className='p-5 rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800'>
+                          <div className='flex items-center gap-3'>
+                            <div className='h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center flex-shrink-0'>
+                              <PartyPopper className='h-5 w-5 text-green-600 dark:text-green-400' />
+                            </div>
+                            <div className='flex-1'>
+                              <h4 className='font-semibold text-green-800 dark:text-green-200'>Application tracked!</h4>
+                              <p className='text-sm text-green-700 dark:text-green-300'>
+                                Your application for <strong>{trackForm.role}</strong> at <strong>{trackForm.company}</strong> has been added to your tracker.
+                              </p>
+                            </div>
+                            <Button
+                              size='sm'
+                              variant='outline'
+                              onClick={() => router.push('/tracker')}
+                              className='gap-2 border-green-300 text-green-700 hover:bg-green-100 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-900/40'
+                            >
+                              View Tracker <ArrowRight className='h-4 w-4' />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
