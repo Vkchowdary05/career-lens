@@ -1,228 +1,219 @@
 # CareerLens - Career Intelligence Platform
 
-A comprehensive platform for career development, interview preparation, and professional networking. CareerLens connects professionals to real interview experiences, company insights, and personalized career guidance.
+A comprehensive, full-stack intelligence platform built for modern career development. CareerLens goes beyond traditional job seeking by offering real-world interview analytics, seamless AI-powered resume optimization, gamified engagement setups, and extensive company insights. 
 
-## Features
-
-### 🏠 Public Pages
-- **Landing Page** - Marketing-focused homepage with features, stats, testimonials, and CTA
-- **Login/Signup** - Secure authentication with email and OAuth integration
-
-### 📊 Dashboard & Navigation
-- **Sidebar Navigation** - Fast access to all major sections
-- **Responsive Design** - Optimized for desktop, tablet, and mobile
-
-### 🔗 Core Features
-
-#### 📝 Social Feed
-- Browse real interview experiences from professionals
-- Like, comment, and share posts
-- Trending companies and top contributors
-- Search and filter functionality
-
-#### 🎯 Interview Experiences
-- **Share Form** - 7-section guided wizard to document your interview journey
-  - Company & Role information
-  - Application source tracking
-  - Interview rounds with details
-  - Outcome and compensation info
-  - Resources and tips
-  - Questions asked
-  - Visibility and settings
-- **Experience Listing** - Browse, filter, and discover real interview stories
-- **Experience Details** - Complete view with rounds, questions, and community interaction
-
-#### 🏢 Companies Hub
-- Browse 25K+ companies with insights
-- Company cards showing experience counts and ratings
-- Advanced filtering by skills and metrics
-- Sort by rating, experiences, or interview volume
-- Company detail pages with:
-  - Interview timeline and rounds
-  - Required skills analysis
-  - Top questions asked
-  - Success rate and difficulty metrics
-  - AI-powered interview insights
-
-#### 📄 Resume Optimizer
-- 4-step wizard for resume optimization:
-  1. **Job Details** - Input job description and target role
-  2. **Your Profile** - Upload CV or fill manually
-  3. **Skill Assessment** - Interactive skill evaluation with gap analysis
-  4. **Resume Review** - Get optimization score and actionable recommendations
-- Skill match visualization
-- Export to PDF or LaTeX
-
-#### 📊 Application Tracker
-- Track all job applications in one place
-- **Kanban View** - Visual pipeline with 8 stages:
-  - Applied → Shortlisted → Assignment/OA → Interview Rounds → Offer Received → Offer Accepted/Rejected
-- **List View** - Table format with sorting and filtering
-- Application statistics dashboard
-- Priority indicators and time tracking
-
-#### 🏆 Leaderboard
-- Community rankings and recognition
-- Visual podium display for top 3
-- Points-based achievement system
-- Time-based filters (Week/Month/All Time)
-- Top contributor badges
-
-#### 👤 User Profiles
-- Profile header with stats
-- Tabs for posts, experiences, applications, and saved items
-- Points and contribution tracking
-- Follower/following system
-
-#### ⚙️ Settings
-- Profile management
-- Account settings
-- Privacy controls
-- Notification preferences
-
-#### 🔔 Notifications
-- Real-time activity updates
-- Like, comment, follow notifications
-- Achievement badges
-- Notification history and filtering
-
-## Tech Stack
-
-### Frontend
-- **Next.js 16** - React framework with App Router
-- **TypeScript** - Type-safe development
-- **Tailwind CSS v4** - Utility-first styling
-- **shadcn/ui** - High-quality UI components
-- **Recharts** - Data visualization
-- **Lucide Icons** - Icon library
-- **@dnd-kit** - Drag and drop functionality
-
-### Styling & Design
-- Professional blue color scheme (#3377CC primary)
-- Mint/teal accents
-- Clean, modern typography
-- Responsive, accessible design
-
-### State & Data
-- Client-side state management with React hooks
-- Mock API utilities for development
-- Custom hooks: useDebounce, usePagination, useFetch, useLocalStorage
-
-## Project Structure
-
-```
-/vercel/share/v0-project/
-├── app/
-│   ├── (protected)/          # Protected route group
-│   │   ├── feed/
-│   │   ├── companies/
-│   │   ├── experiences/
-│   │   ├── resume/
-│   │   ├── tracker/
-│   │   ├── leaderboard/
-│   │   ├── profile/
-│   │   ├── notifications/
-│   │   ├── settings/
-│   │   └── layout.tsx        # Protected layout with sidebar
-│   ├── login/
-│   ├── signup/
-│   ├── page.tsx              # Landing page
-│   ├── layout.tsx            # Root layout
-│   └── globals.css           # Global styles
-├── components/
-│   ├── ui/                   # shadcn components
-│   └── layout/               # Layout components (Sidebar, TopHeader, Navbar)
-├── lib/
-│   ├── constants.ts          # App constants and mock data
-│   ├── validators.ts         # Zod schemas for validation
-│   ├── api.ts                # Mock API utilities
-│   ├── formatters.ts         # Formatting utilities
-│   └── utils.ts              # Common utilities
-├── hooks/
-│   ├── useDebounce.ts
-│   ├── usePagination.ts
-│   ├── useFetch.ts
-│   ├── useLocalStorage.ts
-│   └── index.ts
-└── public/                   # Static assets
-```
-
-## Design System
-
-### Colors
-- **Primary**: #3377CC (Professional Blue)
-- **Secondary**: #4DB8A8 (Teal)
-- **Accent**: #2DD4BF (Mint Green)
-- **Destructive**: #EF4444 (Red)
-- **Muted**: #F3F4F6 (Light Gray)
-- **Background**: #FFFFFF / #0F172A (Dark mode)
-
-### Typography
-- **Font**: Geist (Sans) and Geist Mono
-- **Headings**: Bold, Geist Sans
-- **Body**: Regular 14-16px, Geist Sans
-
-### Spacing & Radius
-- Scale: 4px, 8px, 12px, 16px, 24px, 32px, 48px, 64px
-- Border Radius: 0.5rem (8px) standard
-
-## Getting Started
-
-1. **Install dependencies**
-   ```bash
-   pnpm install
-   ```
-
-2. **Run development server**
-   ```bash
-   pnpm dev
-   ```
-
-3. **Open browser**
-   ```
-   http://localhost:3000
-   ```
-
-## Key Pages & Routes
-
-| Route | Page | Features |
-|-------|------|----------|
-| `/` | Landing | Marketing page |
-| `/login` | Login | Authentication |
-| `/signup` | Signup | Account creation |
-| `/feed` | Social Feed | Posts, trends |
-| `/experiences` | Experiences List | Browse stories |
-| `/experiences/share` | Share Experience | Guided 7-section form |
-| `/experiences/[id]` | Experience Detail | Full experience view |
-| `/companies` | Companies Hub | Search, filter, analytics |
-| `/companies/[slug]` | Company Detail | Insights, timeline, skills |
-| `/resume` | Resume Optimizer | 4-step wizard |
-| `/tracker` | Application Tracker | Kanban & list views |
-| `/leaderboard` | Leaderboard | Rankings, podium |
-| `/profile` | User Profile | Stats, posts, experiences |
-| `/notifications` | Notifications | Activity feed |
-| `/settings` | Settings | Account management |
-
-## Future Enhancements
-
-- Backend API integration with database
-- Real authentication system
-- Email notifications
-- Advanced search and filters
-- Interview preparation resources
-- Mentor matching
-- Career coaching
-- Resume parsing and analysis
-- Video interview prep
-
-## Development Notes
-
-- All pages use mock data for demonstration
-- Ready for backend integration
-- Fully typed with TypeScript
-- Responsive and accessible design
-- Dark mode support included
+Built with scalability, performance, and user-centric workflows in mind.
 
 ---
 
-Built with Next.js 16 and shadcn/ui on v0.
+## 🌟 Application Features
+
+### 1. 📄 AI-Powered Resume Optimizer
+A cornerstone intelligent feature generating robust, customized resumes in LaTeX format, strictly compliant with ATS (Applicant Tracking Systems) requirements.
+- **JD & CV Analysis:** Upload a CV (PDF parsed server-side) alongside a Job Description to get targeted AI evaluations.
+- **Skill Gap Extraction:** Utilizes AI (Gemini 2.5 Flash via OpenAI SDK) to scan JDs for critical/necessary skills. Fallbacks manually to a robust keyword regex match if AI fails.
+- **Skill Coaching chat:** AI-driven brief feedback loops for individual skill assessment.
+- **Automated LaTeX Generation:** Smashes user inputs, CV contexts, and JD mappings into custom 1-page perfectly formatted LaTeX resumes ready to compile.
+
+### 2. 🎯 Interview Experiences Hub
+Structured sharing and navigation of detailed user interview histories.
+- **7-Stage Experience Form:** Captures company details, applicant sources, multi-round technical breakdowns, prep tips, red/green flags, and compensation details.
+- **Browsing & Discovery:** Browse 25K+ dynamically loaded, debounced searched, and sorted community interview stories mapped directly to company and role.
+
+### 3. 🏢 Companies Hub
+A deep-dive data repository for target employers. 
+- Filter lists of companies and track cumulative community metrics.
+- Detailed insight views: Average difficulty rating, focus areas (e.g., DSA vs. Development), company culture summaries auto-generated by AI based on aggregated community posts.
+
+### 4. 📝 Social Feed
+A dynamic communication wall dedicated exclusively to professional milestones, interview wins, tips, and challenges.
+- Like, comment, share, and filter posts by role or recency.
+
+### 5. 📊 Job Application Tracker (Kanban & List)
+A built-in organizational ATS for the user.
+- Drag-and-drop Kanban interface powered by `@dnd-kit/core`.
+- Stages from "Applied", "Shortlisted", "Assignment/OA", "Interviews", up to "Offer Accept/Reject".
+- Granular tracking (dates, priority, application URL, manual notes).
+
+### 6. 🏆 Gamification & Leaderboard
+A comprehensive points system rewarding active contributors.
+- Users gain points for writing full interview experiences, successfully completing job analysis, or engaging thoughtfully.
+- Ranks visually displayed via a dynamic Podium Leaderboard (Weekly/Monthly/All-Time filters).
+
+### 7. 👤 User Accounts, Profiles & Notifications
+- Firebase Auth driven secure logins (JWT integrations directly mapped to backend user storage).
+- Real-time notification drops for interactions (likes, achievements).
+- Complete profile customization and saved item caches.
+
+---
+
+## 🛠 Tech Stack
+
+### Frontend Architecture
+- **Framework:** Next.js 16 (App Router paradigm)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS v4, initialized with `postcss`
+- **Component Library:** `shadcn/ui` (Radix UI primitives underneath)
+- **Data Visualization:** Recharts (for application pipelines and stats tracking)
+- **Drag & Drop:** `@dnd-kit`
+
+### Backend Architecture
+- **Framework:** FastAPI (Python 3.9+)
+- **Database:** MongoDB configured asynchronously (motor, pymongo)
+- **Authentication:** Firebase Admin SDK securely passing and validating JWTs.
+- **Cloud Storage:** Cloudinary (For unstructured raw document processing & CV storage)
+- **AI Engine:** Google Gemini (using the OpenAI SDK wrapper aiming at Gemini 2.5 Flash API).
+- **PDF Manipulation:** `pypdf`
+
+---
+
+## 📂 Project Structure
+
+```text
+career-lens/
+├── .env.local                  # Frontend environment variables
+├── package.json                # Next.js dependencies and scripts
+├── app/                        
+│   ├── (protected)/            # Authed routes: feed, tracker, profile, experiences, resume
+│   ├── login/                  # Registration and login bounds
+│   ├── signup/
+│   ├── layout.tsx              
+│   ├── page.tsx                # Marketing landing
+│   └── globals.css             # Root Tailwind CSS layers
+├── components/                 # Shared UI elements (shadcn + layout wrappers)
+├── backend/                    
+│   ├── main.py                 # FastAPI application mount
+│   ├── requirements.txt        # Python dependency manifest
+│   ├── .env                    # Backend environment configurations
+│   ├── firebase_admin_key.json # Firebase Admin JSON (MUST ATTACH)
+│   └── app/
+│       ├── routers/            # Endpoint handlers (auth, users, feed, resume, etc.)
+│       ├── services/           # Logic execution (grok_service, cloudinary, points...)
+│       ├── models/             # Pydantic schema validation mapping
+│       ├── database.py         # Async Motor MongoClient initialization
+│       └── config.py           # Pydantic base settings mapped to .env
+└── public/                     # Static graphical assets
+```
+
+---
+
+## 🚀 Setup & Installation Instructions
+
+### Prerequisites
+1. **Node.js** (v18+) & **pnpm** installed.
+2. **Python** (v3.9+) installed.
+3. Services properly configured: A running **MongoDB** cluster (local or Atlas), **Firebase** Project, **Cloudinary** Account, and a **Google Gemini** API key.
+
+### 1. Backend Setup (FastAPI)
+
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+2. Create and activate a virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate       # On Linux/Mac
+   venv\\Scripts\\activate          # On Windows
+   ```
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Add your Firebase Key: Save your Firebase service account JSON file as `firebase_admin_key.json` in the `/backend` directory.
+5. Create a `.env` file in the `/backend` folder:
+   ```env
+   MONGODB_URL=mongodb+srv://<username>:<password>@cluster.mongodb.net/
+   MONGODB_DB_NAME=careerlens
+   FIREBASE_PROJECT_ID=carrer-lens-dd592
+   FIREBASE_ADMIN_KEY_PATH=./firebase_admin_key.json
+   CLOUDINARY_CLOUD_NAME=your_cloud_name
+   CLOUDINARY_API_KEY=your_key
+   CLOUDINARY_API_SECRET=your_secret
+   GEMINI_API_KEY=your_gemini_api_key
+   GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+   GEMINI_MODEL=gemini-2.5-flash
+   ALLOWED_ORIGINS=http://localhost:3000
+   ```
+6. Start the server:
+   ```bash
+   uvicorn main:app --reload
+   ```
+   *The backend will be available at `http://localhost:8000/docs` (Swagger UI).*
+
+### 2. Frontend Setup (Next.js)
+
+1. Open a new terminal and navigate to the project root:
+   ```bash
+   cd /path/to/career-lens
+   ```
+2. Install frontend packages:
+   ```bash
+   pnpm install
+   ```
+3. Establish frontend variables by editing `.env.local`:
+   ```env
+   NEXT_PUBLIC_API_URL=http://localhost:8000
+   NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_web_api_key
+   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=carrer-lens-dd592.firebaseapp.com
+   NEXT_PUBLIC_FIREBASE_PROJECT_ID=carrer-lens-dd592
+   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=carrer-lens-dd592.firebasestorage.app
+   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+   ```
+4. Start the frontend:
+   ```bash
+   pnpm dev
+   ```
+   *The app will run at `http://localhost:3000`.*
+
+---
+
+## 📖 Usage Guide
+
+1. **Sign Up / Sign In:** When you first hit the browser, register via Email/Password heavily regulated by Firebase. Your session propagates secure JWTs to all API interactions.
+2. **Setup your Profile:** Go to Settings/Profile and fill out baseline educational and work stats.
+3. **Use the Resume Builder:**
+   - Head to **Resume Optimizer**.
+   - Input your target Country and Job Title. Paste a Job Description. Upload your existing CV.
+   - Run AI processing. AI extracts all critical skills required and chats with you to confirm domain gaps if present.
+   - Finally, hit Generate to parse a complete LaTeX code block precisely mapped against your gap analyses.
+4. **Log an Application:** Navigate to the **Tracker** board. Drop your latest job application link here, update its priority, and move it through kanban pipeline phases as you interview.
+5. **Share & Gain Points:** Clear your interviews? Navigate to **Experiences**, share the rounds securely to the community, and gain points visible on the **Leaderboard**.
+
+---
+
+## 📡 API Documentation (Overview)
+
+The platform backend rests on FastAPI's auto-documentation. Run the backend and navigate to `/docs` for full interactive OpenAPI maps. 
+Core endpoint groupings include:
+- `[GET] /health`: API ping endpoint.
+- `[POST] /api/auth/verify`: Accepts a Firebase JWT block from frontend client, validating or dropping the user session locally.
+- `[POST] /api/resume/analyze-jd`: Consumes JD fields natively extracting multi-layered ATS keywords.
+- `[POST] /api/resume/generate`: Heavy payload endpoint hitting Google's LLM pipeline generating output string LaTeX resumes.
+- `[GET] /api/experiences/`: Fetches paginated, mapped community interview stories.
+- `[GET] /api/tracker/`: Fetches user-gated kanban workflows.
+
+*Authentication Protocol:* Every protected API expects an `Authorization: Bearer <Firebase_ID_Token>` parsed seamlessly in dependencies via `app.dependencies.get_current_user(...)`.
+
+---
+
+## ⚠️ Known Issues & Assumptions Made
+- **JSON Structure Rigidity with AI:** The AI parsing service (`grok_service.py`) explicitly includes deeply nested regex fallbacks because LLM outputs (`gemini-2.5-flash`) occasionally wrap JSON with markdown backticks or trail commas rendering generic JSON decoding broken. The application utilizes a "4 Strategy" progressive fallback to forcefully coerce data extraction.
+- **Pypdf Raw Extraction:** PDF-to-Text extraction in `/api/resume/upload-cv` currently drops formatting. Extremely stylized local CVs might return jumbled string structures.
+- **Assumption:** The Next.js frontend uses a custom unslashed proxy map to API backend endpoints, avoiding a `307 Redirect` to maintain persistent Authorization Headers—indicated by `redirect_slashes=False` on the FastAPI init map.
+- **Assumption:** File name `grok_service.py` is an organizational legacy relic referencing X.AI Grok initially, but current logic and environment configurations inherently default strictly to Google Gemini (`generativelanguage.googleapis.com`).
+
+---
+
+## 🛡️ Security Considerations
+- **Firebase Bound Verification:** Endpoints aggressively deny processing without verified, non-expired tokens minted strictly from the registered Firebase application mapping. 
+- **CORS Mitigation:** Implemented securely; standard origins must be explicitly fed into the initialization `.env` variable (`ALLOWED_ORIGINS`).
+- **Resource Constraints (Generative):** The backend does currently lack hard token limitation locks per user session. Without active API quota restraints, frequent calls specifically to `generate_latex_resume` and `analyze_jd` could drain Gemini pipeline credits unexpectedly. Rate Limiters (like `slowapi`) are heavily suggested on `/api/resume/*`.
+
+---
+
+## 📈 Performance Improvements / Suggestions
+- **Next.js Server Actions:** Migrate heavy-lift `useEffect()` fetching on the platform dashboard to React Server Components/Server Actions where caching strategies natively optimize UI hydration, avoiding loading skeletons post-login.
+- **Resume Compilation Sandbox:** To make LaTeX generation genuinely turn-key, run a microservice (e.g. Tectonic / TexLive via Docker) that returns compiled Pdfs to the frontend natively instead of expecting the user to copy/paste the LaTeX string into Overleaf to compile.
+- **Database Indexing:** Ensure MongoDB heavily indexes search arrays within `experiences` and `companies` collections textually, guaranteeing rapid query mapping as database metrics expand beyond 1,000+ entries.
