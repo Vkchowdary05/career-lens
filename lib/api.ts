@@ -1,16 +1,15 @@
 // CareerLens API Client — replaces the mock API utility
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = ""; // Handled by next.config.mjs proxy
+
+let _globalToken: string | null = null;
+
+export function setApiToken(token: string | null) {
+  _globalToken = token;
+}
 
 async function getToken(): Promise<string | null> {
-  try {
-    const { auth } = await import("@/lib/firebase");
-    const user = auth.currentUser;
-    if (!user) return null;
-    return user.getIdToken(false);
-  } catch {
-    return null;
-  }
+  return _globalToken;
 }
 
 async function request<T = any>(

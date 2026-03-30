@@ -2,8 +2,9 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { auth, onAuthStateChanged, getAuthToken, signOut, User } from "@/lib/firebase";
+import { setApiToken } from "@/lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = ""; // Handled by next.config.mjs proxy
 
 interface CareerLensUser {
   id: string;
@@ -54,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const tok = await fbUser.getIdToken(true);
       setToken(tok);
+      setApiToken(tok);
 
       const registerRes = await fetch(`${API_BASE}/api/auth/register`, {
         method: "POST",
@@ -81,6 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const tok = await firebaseUser.getIdToken(false);
       setToken(tok);
+      setApiToken(tok);
       const res = await fetch(`${API_BASE}/api/auth/me`, {
         headers: { Authorization: `Bearer ${tok}` }
       });
@@ -98,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setFirebaseUser(null);
     setClUser(null);
     setToken(null);
+    setApiToken(null);
   }, []);
 
   useEffect(() => {
@@ -108,6 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setClUser(null);
         setToken(null);
+        setApiToken(null);
       }
       setLoading(false);
     });

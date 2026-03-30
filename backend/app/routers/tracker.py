@@ -34,14 +34,14 @@ async def stats_summary(current_user=Depends(get_current_user), db=Depends(get_d
 async def get_stages():
     return {"stages": VALID_STAGES}
 
-@router.get("/")
+@router.get("")
 async def list_applications(current_user=Depends(get_current_user), db=Depends(get_db)):
     apps = await db.tracker.find(
         {"user_id": current_user["_id"], "is_deleted": {"$ne": True}}
     ).sort("updated_at", -1).to_list(200)
     return [_s(a) for a in apps]
 
-@router.post("/")
+@router.post("")
 async def create_application(
     data: ApplicationCreate,
     current_user=Depends(get_current_user),

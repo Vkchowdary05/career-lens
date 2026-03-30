@@ -31,7 +31,7 @@ def _calc_points(data: ExperienceCreate) -> int:
         pts += 20
     return pts
 
-@router.post("/")
+@router.post("")
 async def create_experience(
     data: ExperienceCreate,
     current_user=Depends(get_current_user),
@@ -71,7 +71,7 @@ async def create_experience(
     doc["_id"] = result.inserted_id
     return {"experience": _s(doc), "points_earned": pts}
 
-@router.get("/")
+@router.get("")
 async def list_experiences(
     company_slug: str = Query(None),
     role: str = Query(None),

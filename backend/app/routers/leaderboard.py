@@ -4,7 +4,7 @@ from app.dependencies import get_current_user
 
 router = APIRouter()
 
-@router.get("/")
+@router.get("")
 async def get_leaderboard(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=50),

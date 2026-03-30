@@ -122,6 +122,8 @@ async def resume_history(current_user=Depends(get_current_user), db=Depends(get_
     ).sort("created_at", -1).limit(10).to_list(10)
     for s in sessions:
         s["id"] = str(s["_id"])
+        if "user_id" in s:
+            s["user_id"] = str(s["user_id"])
         s.pop("_id", None)
         s.pop("latex_code", None)
     return sessions

@@ -6,7 +6,7 @@ import datetime
 
 router = APIRouter()
 
-@router.get("/")
+@router.get("")
 async def list_companies(
     search: str = Query(None),
     sort_by: str = Query("experiences"),
