@@ -3,7 +3,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.database import connect_db, close_db
 from app.config import settings
-from app.routers import auth, users, feed, experiences, companies, resume, tracker, leaderboard, notifications
+from app.routers import (
+    auth,
+    users,
+    feed,
+    experiences,
+    companies,
+    resume,
+    tracker,
+    leaderboard,
+    notifications,
+)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -11,11 +22,17 @@ async def lifespan(app: FastAPI):
     yield
     await close_db()
 
+
 app = FastAPI(
     title="CareerLens API",
     version="1.0.0",
     description="Backend for CareerLens — Career Intelligence Platform",
-    lifespan=lifespan
+    lifespan=lifespan,
+    # FIX: Disable automatic trailing-slash redirects.
+    # Without this, GET /api/notifications (no slash) produces a 307 →
+    # /api/notifications/ which Next.js may not follow with Authorization header,
+    # causing 403 errors on the redirected request.
+    redirect_slashes=False,
 )
 
 app.add_middleware(
@@ -35,6 +52,7 @@ app.include_router(resume.router,        prefix="/api/resume",        tags=["Res
 app.include_router(tracker.router,       prefix="/api/tracker",       tags=["Tracker"])
 app.include_router(leaderboard.router,   prefix="/api/leaderboard",   tags=["Leaderboard"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
+
 
 @app.get("/health")
 async def health():

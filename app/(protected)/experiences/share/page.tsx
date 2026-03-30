@@ -141,7 +141,15 @@ export default function ShareExperiencePage() {
       }
 
       const result = await experiencesApi.create(payload)
-      router.push(`/experiences/${result.id}`)
+
+      // FIX: backend returns { experience: {...}, points_earned: N }
+      // result.id is undefined — must use result.experience.id
+      const experienceId = result?.experience?.id ?? result?.id
+      if (!experienceId) {
+        throw new Error('Failed to get experience ID from server response.')
+      }
+
+      router.push(`/experiences/${experienceId}`)
     } catch (err: any) {
       setError(err.message || 'Failed to publish experience. Please try again.')
     } finally {

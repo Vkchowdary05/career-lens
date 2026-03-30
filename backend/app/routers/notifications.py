@@ -5,18 +5,27 @@ from bson import ObjectId
 
 router = APIRouter()
 
-@router.get("/")
+
+@router.get("")   # FIX: was "/", which caused 307 redirects from /api/notifications → /api/notifications/
 async def get_notifications(
     page: int = Query(1, ge=1),
     notif_type: str = Query(None),
     db=Depends(get_db),
-    current_user=Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
     skip = (page - 1) * 30
     query = {"recipient_id": current_user["_id"]}
     if notif_type and notif_type.lower() != "all":
         query["type"] = notif_type.lower()
-    notifs = await db.notifications.find(query).sort("created_at", -1).skip(skip).limit(30).to_list(30)
+
+    notifs = (
+        await db.notifications.find(query)
+        .sort("created_at", -1)
+        .skip(skip)
+        .limit(30)
+        .to_list(30)
+    )
+
     result = []
     for n in notifs:
         n_dict = dict(n)
@@ -28,14 +37,25 @@ async def get_notifications(
             n_dict["sender_id"] = str(n_dict["sender_id"])
         if isinstance(n_dict.get("post_id"), ObjectId):
             n_dict["post_id"] = str(n_dict["post_id"])
+        # Normalise field name: backend stores "read", frontend expects "is_read"
+        n_dict["is_read"] = n_dict.pop("read", False)
+        n_dict.setdefault("message", n_dict.get("type", "notification"))
         result.append(n_dict)
+
+    # Mark as read
     await db.notifications.update_many(
         {"recipient_id": current_user["_id"], "read": False},
-        {"$set": {"read": True}}
+        {"$set": {"read": True}},
     )
-    return result
+
+    return {"notifications": result, "page": page, "has_more": len(notifs) == 30}
+
 
 @router.get("/unread-count")
-async def unread_count(db=Depends(get_db), current_user=Depends(get_current_user)):
-    count = await db.notifications.count_documents({"recipient_id": current_user["_id"], "read": False})
+async def unread_count(
+    db=Depends(get_db), current_user=Depends(get_current_user)
+):
+    count = await db.notifications.count_documents(
+        {"recipient_id": current_user["_id"], "read": False}
+    )
     return {"unread_count": count}
