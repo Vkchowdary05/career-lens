@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: careerlens-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: MONGODB_URL
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: careerlens
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_ADMIN_KEY_PATH
+        value: ./firebase_admin_key.json
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_BASE_URL
+        value: https://generativelanguage.googleapis.com/v1beta/openai/
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: ALLOWED_ORIGINS
+        sync: false
