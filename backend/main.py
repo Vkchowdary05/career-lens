@@ -54,6 +54,6 @@ app.include_router(leaderboard.router,   prefix="/api/leaderboard",   tags=["Lea
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health():
     return {"status": "ok", "service": "CareerLens API v1.0"}
